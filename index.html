@@ -638,16 +638,20 @@ function buildVinci() {
   const X = w / 2 - LEGO.w / 2;                                             // vigas rentes às laterais
   const sag = Math.min(0.5, X * 0.3);                                       // quanto o meio do arco sobe
   const zH = -0.15 * k;
-  // base de cada lado: bloco de cantos retos que sai do próprio topo do robô
-  // (mesma cor da carcaça); a viga em pé nasce de dentro dele
+  // base de cada lado: viga deitada de 3 furos presa ao topo por dois pinos pretos;
+  // a viga em pé sai do meio dela, com a ponta de baixo reta, como se fossem uma peça só
   [-1, 1].forEach(s => {
-    const bw2 = LEGO.w + 0.06, bl = LEGO.w + 0.5;
-    box(v, bw2, LEGO.t + 0.05, bl, s * (w / 2 - bw2 / 2), yT + (LEGO.t - 0.05) / 2, zH, orange);
+    const bx = s * X;
+    add(v, technicBeam(3), M.white, bx, yT + LEGO.t / 2, zH - LEGO.pitch, { rx: -Math.PI / 2, rz: -Math.PI / 2 });
+    [-1, 1].forEach(j => {
+      cyl(v, LEGO.hole, LEGO.hole, LEGO.t + 0.3, bx, yT + LEGO.t / 2 - 0.15, zH + j * LEGO.pitch, M.black, null, 16);
+      cyl(v, 0.3, 0.3, 0.05, bx, yT + LEGO.t + 0.025, zH + j * LEGO.pitch, M.black, null, 16);
+    });
   });
   const firstY = yT + LEGO.t + LEGO.w / 2 - 0.05;                           // primeiro furo, apoiado na viga deitada
   const nV = Math.max(2, Math.floor((VINCI.total - LEGO.w / 2 - sag - firstY) / LEGO.pitch + 1e-6) + 1);
   const topY = firstY + (nV - 1) * LEGO.pitch;
-  [-1, 1].forEach(s => add(v, technicBeam(nV), M.white, s * X, firstY, zH, { rz: Math.PI / 2 }));
+  [-1, 1].forEach(s => add(v, technicBeam(nV, true), M.white, s * X, firstY, zH, { rz: Math.PI / 2 }));
   const arc = technicArc(X, sag);
   add(v, arc.geo, M.white, 0, topY, zH);
   v.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.elId = 'vincibot'; } });
@@ -660,13 +664,13 @@ function buildVinci() {
 // viga Technic: n furos a 8 mm, pontas arredondadas, furos de 4,8 mm, 7,2 mm de espessura;
 // começa no primeiro furo (origem) e segue no eixo +x
 const LEGO = { pitch: 0.8, w: 0.74, t: 0.72, hole: 0.24 };
-function technicBeam(n) {
+function technicBeam(n, squareStart = false) {
   const L = (n - 1) * LEGO.pitch, r = LEGO.w / 2;
   const s = new THREE.Shape();
-  s.moveTo(0, -r); s.lineTo(L, -r);
+  s.moveTo(squareStart ? -r : 0, -r); s.lineTo(L, -r);
   s.absarc(L, 0, r, -Math.PI / 2, Math.PI / 2, false);
-  s.lineTo(0, r);
-  s.absarc(0, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+  if (squareStart) { s.lineTo(-r, r); s.closePath(); }           // ponta inicial reta
+  else { s.lineTo(0, r); s.absarc(0, 0, r, Math.PI / 2, Math.PI * 1.5, false); }
   for (let i = 0; i < n; i++) {
     const hp = new THREE.Path(); hp.absarc(i * LEGO.pitch, 0, LEGO.hole, 0, Math.PI * 2, true); s.holes.push(hp);
   }
