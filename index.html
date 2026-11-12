@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maquete Escola dos Sonhos 3D</title>
+<meta name="description" content="Maquete 3D da sala Ambiente Escolar Tecnológico com Materiais Recicláveis, da equipe Astrobóticos, para avaliação antes da impressão 3D.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700&display=swap">
+<style>
+/* Layout: palco 3D em tela cheia + painel lateral de peças (vira gaveta inferior no celular) */
+:root {
+  --bg: #e9edf2;
+  --stage: #d9cbb8;
+  --panel: #ffffff;
+  --panel-2: #f3f5f8;
+  --line: #d5dbe3;
+  --fg: #1c2430;
+  --muted: #5d6877;
+  --accent: #1f5fbf;
+  --accent-soft: #dce8fa;
+  --green: #2f8f4e;
+  --font-display: "Fredoka", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  --radius: 10px;
+  --panel-w: 330px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #10141a; --stage: #1b2028; --panel: #171c24; --panel-2: #1f2530; --line: #2c3442;
+    --fg: #e5eaf1; --muted: #98a3b3; --accent: #6ea2f5; --accent-soft: #1f3150; --green: #5cc27f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #10141a; --stage: #1b2028; --panel: #171c24; --panel-2: #1f2530; --line: #2c3442;
+  --fg: #e5eaf1; --muted: #98a3b3; --accent: #6ea2f5; --accent-soft: #1f3150; --green: #5cc27f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 15px/1.45 var(--font-body);
+  overflow: hidden;
+}
+.app { display: flex; height: 100%; }
+#stage { position: relative; flex: 1; min-width: 0; background: var(--stage); }
+#c { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#c:active { cursor: grabbing; }
+
+/* barra de vistas sobre o palco */
+.toolbar {
+  position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); left: max(12px, env(safe-area-inset-left, 0px));
+  right: 12px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none;
+}
+.toolbar > * { pointer-events: auto; }
+.chip {
+  font: 600 13px/1 var(--font-body); color: var(--fg);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  padding: 8px 12px; cursor: pointer; box-shadow: 0 1px 2px rgb(0 0 0 / .08);
+}
+.chip:hover { border-color: var(--accent); }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip:focus-visible, button:focus-visible, input:focus-visible, label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sep { width: 1px; background: var(--line); margin: 2px 2px; }
+
+.hint {
+  position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  font-size: 12.5px; color: var(--muted); background: color-mix(in srgb, var(--panel) 85%, transparent);
+  padding: 6px 10px; border-radius: 8px; max-width: calc(100% - 24px);
+}
+
+/* cartão da peça selecionada */
+#sel {
+  position: absolute; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  width: min(320px, calc(100% - 24px)); background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px; box-shadow: 0 6px 24px rgb(0 0 0 / .12);
+}
+#sel h3 { margin: 0 0 2px; font: 600 18px/1.2 var(--font-display); }
+#sel .cat { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+#sel dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 10px 0; font-size: 13.5px; }
+#sel dt { color: var(--muted); }
+#sel dd { margin: 0; font-variant-numeric: tabular-nums; }
+#sel p { margin: 0 0 10px; font-size: 13.5px; color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn {
+  font: 700 13px/1 var(--font-body); padding: 9px 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel-2); color: var(--fg);
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.x { position: absolute; top: 8px; right: 8px; border: 0; background: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+
+/* painel lateral */
+#panel {
+  width: var(--panel-w); flex: none; background: var(--panel); border-left: 1px solid var(--line);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.panel-head { padding: calc(16px + env(safe-area-inset-top, 0px)) max(18px, env(safe-area-inset-right, 0px)) 12px 18px; border-bottom: 1px solid var(--line); }
+.eyebrow { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--green); font-weight: 700; }
+h1 { margin: 2px 0 4px; font: 600 22px/1.15 var(--font-display); text-wrap: balance; }
+.dims { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.dim { font-size: 12.5px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; font-variant-numeric: tabular-nums; }
+.panel-body { overflow-y: auto; padding: 12px max(18px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) 18px; display: flex; flex-direction: column; gap: 16px; }
+.section-title { font: 600 14px/1.2 var(--font-display); margin: 0 0 6px; display: flex; justify-content: space-between; align-items: center; }
+.count { font: 600 12px var(--font-body); color: var(--muted); }
+.cat-block { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.cat-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--panel-2); font-weight: 700; font-size: 14px; }
+.cat-head label { flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.items { list-style: none; margin: 0; padding: 4px 0; }
+.items li { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: 14px; }
+.items li label { flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; min-width: 0; }
+.items li.active { background: var(--accent-soft); }
+.swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; border: 1px solid rgb(0 0 0 / .15); }
+.mini { font: 600 12px var(--font-body); color: var(--accent); background: none; border: 0; cursor: pointer; padding: 2px 4px; }
+input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; flex: none; }
+.note { font-size: 13px; color: var(--muted); margin: 0; }
+.note b { color: var(--fg); }
+.toggle-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 14px; }
+.toggle-list label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+
+#panelToggle { display: none; }
+
+@media (max-width: 760px) {
+  .app { flex-direction: column; }
+  #stage { flex: 1 1 auto; min-height: 0; }
+  #panel { width: 100%; border-left: 0; border-top: 1px solid var(--line); max-height: 46%; }
+  #panel.collapsed .panel-body { display: none; }
+  #panelToggle { display: inline-block; margin-top: 8px; }
+  .panel-head { padding-top: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+  .panel-body { padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+  #sel { bottom: 12px; }
+  .hint { display: none; }
+  h1 { font-size: 19px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div class="app">
+  <main id="stage">
+    <canvas id="c" aria-label="Maquete 3D da sala. Arraste para girar, role para aproximar."></canvas>
+    <div class="toolbar" role="toolbar" aria-label="Vistas">
+      <button class="chip" data-view="iso">Perspectiva</button>
+      <button class="chip" data-view="front">Frente</button>
+      <button class="chip" data-view="top">Topo</button>
+      <button class="chip" data-view="left">Esquerda</button>
+      <button class="chip" data-view="right">Direita</button>
+      <span class="sep" aria-hidden="true"></span>
+      <button class="chip" id="spin" aria-pressed="false">Girar sozinho</button>
+    </div>
+    <div class="hint">Arraste para girar · role ou pince para zoom · botão direito ou dois dedos para mover · clique numa peça para ver detalhes</div>
+    <section id="sel" hidden aria-live="polite">
+      <button class="x" id="selClose" aria-label="Fechar">×</button>
+      <div class="cat" id="selCat"></div>
+      <h3 id="selName"></h3>
+      <dl>
+        <dt>Medidas</dt><dd id="selSize"></dd>
+        <dt>Filamento</dt><dd id="selFil"></dd>
+      </dl>
+      <p id="selNote"></p>
+      <div class="row">
+        <button class="btn" id="selFocus">Aproximar</button>
+        <button class="btn" id="selIsolate">Ver só esta</button>
+        <button class="btn" id="selHide">Esconder</button>
+        <button class="btn primary" id="selStl">Baixar STL</button>
+      </div>
+    </section>
+  </main>
+
+  <aside id="panel">
+    <div class="panel-head">
+      <div class="eyebrow">Equipe Astrobóticos · TBR 2026</div>
+      <h1>Ambiente Escolar Tecnológico com Materiais Recicláveis</h1>
+      <div class="dims">
+        <span class="dim">Base 21 × 8 cm</span>
+        <span class="dim">Paredes 7 cm de altura</span>
+        <span class="dim" id="pieceCount">0 peças</span>
+      </div>
+      <button class="btn" id="panelToggle" aria-expanded="true">Esconder lista de peças</button>
+    </div>
+    <div class="panel-body">
+      <div>
+        <div class="row">
+          <button class="btn" id="showAll">Mostrar tudo</button>
+          <button class="btn" id="hideAll">Esconder tudo</button>
+          <button class="btn primary" id="stlAll">Baixar STL do que está visível</button>
+        </div>
+      </div>
+
+      <div id="cats"></div>
+
+      <div>
+        <div class="section-title">Exibição</div>
+        <div class="toggle-list">
+          <label><input type="checkbox" id="optDims" checked> Cotas (cm)</label>
+          <label><input type="checkbox" id="optGrid"> Grade de 1 cm</label>
+          <label><input type="checkbox" id="optWire"> Modo arame</label>
+          <label><input type="checkbox" id="optShadow" checked> Sombras</label>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Para imprimir</div>
+        <p class="note">O arquivo STL sai em <b>milímetros</b>, com o eixo Z para cima. A base tem <b>210 × 80 mm</b> e cabe numa mesa de impressão de 220 × 220 mm. Placa, telas e adesivos de reciclagem aparecem coloridos aqui, mas no STL viram peças lisas: o desenho pode ser colado depois, impresso em papel.</p>
+      </div>
+      <div>
+        <div class="section-title">Observação</div>
+        <p class="note">Na foto as paredes parecem abertas em diagonal. Aqui elas estão em ângulo reto, como combinado. A altura de 7 cm foi estimada pela foto e pode ser ajustada antes da impressão.</p>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+// ------------------------------------------------------------ medidas (1 unidade = 1 cm)
+const W = 21, D = 8, H = 7, T = 0.3;
+const ZW = -D / 2 + T;          // face interna da parede do fundo
+const XL = -W / 2 + T, XR = W / 2 - T;
+
+// ------------------------------------------------------------ cena
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 400);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.minDistance = 3;
+controls.maxDistance = 80;
+controls.target.set(0, 2.6, 0);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a7356, 1.4));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+sun.position.set(-8, 18, 14);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 14, bottom: -10, near: 1, far: 60 });
+sun.shadow.bias = -0.0004;
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0xfff2e0, 0.6);
+fill.position.set(10, 6, 12);
+scene.add(fill);
+
+// ------------------------------------------------------------ materiais e texturas
+let seed = 7;
+const rand = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+const cardTex = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#c99d6c'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 2600; i++) {
+    const v = rand();
+    g.fillStyle = v < .5 ? `rgba(120,80,40,${.05 + rand() * .12})` : `rgba(255,235,200,${.04 + rand() * .1})`;
+    g.fillRect(rand() * w, rand() * h, 1 + rand() * 2, 1 + rand() * 2);
+  }
+  g.strokeStyle = 'rgba(110,72,36,.08)';
+  for (let i = 0; i < 40; i++) { g.beginPath(); const x = rand() * w, y = rand() * h; g.moveTo(x, y); g.lineTo(x + rand() * 30 - 15, y + rand() * 6 - 3); g.stroke(); }
+});
+cardTex.wrapS = cardTex.wrapT = THREE.RepeatWrapping;
+cardTex.repeat.set(3, 3);
+
+const mats = {};
+function mat(key, color, o = {}) {
+  if (!mats[key]) mats[key] = new THREE.MeshStandardMaterial({ color, roughness: .85, metalness: 0, ...o });
+  return mats[key];
+}
+const M = {
+  card: mat('card', 0xffffff, { map: cardTex }),
+  cardDark: mat('cardDark', 0xd9c3a3, { map: cardTex }),
+  cardLight: mat('cardLight', 0xfff1dc, { map: cardTex }),
+  wood: mat('wood', 0xd9b27c, { roughness: .7 }),
+  woodDark: mat('woodDark', 0xa87645, { roughness: .7 }),
+  can: mat('can', 0xd4d8de, { metalness: .85, roughness: .32 }),
+  blue: mat('blue', 0x1f56c3, { roughness: .45 }),
+  navy: mat('navy', 0x183c86, { roughness: .5 }),
+  yellow: mat('yellow', 0xf2c21b, { roughness: .5 }),
+  green: mat('green', 0x1f9a55, { roughness: .5 }),
+  red: mat('red', 0xd6332c, { roughness: .5 }),
+  white: mat('white', 0xf6f6f2, { roughness: .4 }),
+  black: mat('black', 0x1c1f24, { roughness: .45 }),
+  gray: mat('gray', 0x8b929c, { roughness: .5 }),
+  leaf: mat('leaf', 0x3f9f37, { roughness: .6 }),
+  leaf2: mat('leaf2', 0x5cbf3f, { roughness: .6 }),
+  soil: mat('soil', 0x4a3424),
+  glass: mat('glass', 0x9fd0ff, { transparent: true, opacity: .25, roughness: .1 }),
+  glow: mat('glow', 0x3f7dff, { emissive: 0x2f6bff, emissiveIntensity: 2.2 }),
+};
+const BOOK_COLORS = [M.blue, M.red, M.yellow, M.green];
+
+// ------------------------------------------------------------ helpers de geometria
+function add(parent, geo, m, x = 0, y = 0, z = 0, opts) {
+  opts = opts || {};
+  const mesh = new THREE.Mesh(geo, m);
+  mesh.position.set(x, y, z);
+  if (opts.rx) mesh.rotation.x = opts.rx;
+  if (opts.ry) mesh.rotation.y = opts.ry;
+  if (opts.rz) mesh.rotation.z = opts.rz;
+  if (opts.noPrint) mesh.userData.noPrint = true;
+  parent.add(mesh);
+  return mesh;
+}
+const box = (p, w, h, d, x, y, z, m, o) => add(p, new THREE.BoxGeometry(w, h, d), m, x, y, z, o);
+const cyl = (p, rt, rb, h, x, y, z, m, o, seg = 28) => add(p, new THREE.CylinderGeometry(rt, rb, h, seg), m, x, y, z, o);
+const decal = (p, w, h, tex, x, y, z, o = {}) => add(p, new THREE.PlaneGeometry(w, h),
+  new THREE.MeshStandardMaterial({ map: tex, roughness: .7, transparent: !!o.transparent, emissive: o.glow ? 0xffffff : 0x000000, emissiveMap: o.glow ? tex : null, emissiveIntensity: o.glow ? .55 : 0 }),
+  x, y, z, { ...o, noPrint: true });
+
+// símbolo de reciclagem desenhado no canvas
+function drawRecycle(g, cx, cy, r, color) {
+  g.save(); g.translate(cx, cy); g.fillStyle = color; g.strokeStyle = color;
+  for (let i = 0; i < 3; i++) {
+    g.save(); g.rotate(i * 2 * Math.PI / 3);
+    g.lineWidth = r * .26; g.lineCap = 'butt';
+    g.beginPath(); g.arc(0, 0, r * .72, -Math.PI * .95, -Math.PI * .45); g.stroke();
+    const a = -Math.PI * .45, ax = Math.cos(a) * r * .72, ay = Math.sin(a) * r * .72;
+    g.translate(ax, ay); g.rotate(a + Math.PI / 2);
+    g.beginPath(); g.moveTo(r * .34, 0); g.lineTo(-r * .06, -r * .26); g.lineTo(-r * .06, r * .26); g.closePath(); g.fill();
+    g.restore();
+  }
+  g.restore();
+}
+const recycleTex = (bg, fg) => canvasTex(256, 256, (g, w, h) => {
+  if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); }
+  drawRecycle(g, w / 2, h / 2 + 6, w * .36, fg);
+});
+
+// ------------------------------------------------------------ registro das peças
+const CATS = [
+  { id: 'estrutura', name: 'Estrutura' },
+  { id: 'parede', name: 'Na parede' },
+  { id: 'moveis', name: 'Móveis' },
+  { id: 'tecnologia', name: 'Tecnologia' },
+  { id: 'decoracao', name: 'Decoração' },
+];
+const elements = [];
+function element(id, name, cat, info, build) {
+  const g = new THREE.Group();
+  g.name = id;
+  build(g);
+  g.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.noPrint || o.geometry.type !== 'PlaneGeometry'; o.receiveShadow = true; o.userData.elId = id; } });
+  scene.add(g);
+  const el = { id, name, cat, group: g, swatch: info.swatch || '#c99d6c', fil: info.fil, note: info.note };
+  elements.push(el);
+  return el;
+}
+
+// ------------------------------------------------------------ ESTRUTURA
+element('base', 'Base (piso)', 'estrutura',
+  { swatch: '#c99d6c', fil: 'PLA marrom ou bege', note: 'Placa de 210 × 80 × 3 mm. Imprimir deitada, com 100% de preenchimento nas bordas para não empenar.' },
+  g => { box(g, W, T, D, 0, -T / 2, 0, M.card); });
+element('parede-fundo', 'Parede do fundo', 'estrutura',
+  { fil: 'PLA marrom ou bege', note: 'Parede de 210 × 70 × 3 mm. Imprimir deitada e colar na base.' },
+  g => { box(g, W, H, T, 0, H / 2, -D / 2 + T / 2, M.cardDark); });
+element('parede-esq', 'Parede esquerda', 'estrutura',
+  { fil: 'PLA marrom ou bege', note: 'Parede lateral de 77 × 70 × 3 mm, em ângulo reto com o fundo.' },
+  g => { box(g, T, H, D - T, -W / 2 + T / 2, H / 2, T / 2, M.cardDark); });
+element('parede-dir', 'Parede direita', 'estrutura',
+  { fil: 'PLA marrom ou bege', note: 'Parede lateral de 77 × 70 × 3 mm, em ângulo reto com o fundo.' },
+  g => { box(g, T, H, D - T, W / 2 - T / 2, H / 2, T / 2, M.cardDark); });
+
+// ------------------------------------------------------------ NA PAREDE
+const signTex = canvasTex(1024, 512, (g, w, h) => {
+  g.fillStyle = '#e9cfa6'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 1500; i++) { g.fillStyle = `rgba(120,80,40,${rand() * .08})`; g.fillRect(rand() * w, rand() * h, 2, 2); }
+  g.fillStyle = '#d9a35e';
+  [[0, 0], [w, 0], [0, h], [w, h]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 46, 0, Math.PI * 2); g.fill(); });
+  g.fillStyle = '#2c2116'; g.font = '600 74px Fredoka, "Trebuchet MS", sans-serif'; g.textBaseline = 'middle';
+  ['Ambiente Escolar', 'Tecnológico', 'com Materiais', 'Recicláveis'].forEach((t, i) => g.fillText(t, 54 + (i % 2) * 30, 92 + i * 108));
+  drawRecycle(g, 830, 210, 150, '#1f8a4c');
+});
+element('placa', 'Placa “Ambiente Escolar Tecnológico”', 'parede',
+  { swatch: '#e9cfa6', fil: 'PLA bege + adesivo impresso', note: 'Plaquinha de 56 × 28 × 1,5 mm. O texto e o símbolo podem ser impressos em papel e colados.' },
+  g => {
+    box(g, 5.6, 2.8, 0.15, -6.4, 4.9, ZW + 0.075, M.cardLight);
+    decal(g, 5.6, 2.8, signTex, -6.4, 4.9, ZW + 0.16);
+  });
+
+const landscapeTex = canvasTex(512, 512, (g, w, h) => {
+  const sky = g.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#8fd0f5'); sky.addColorStop(1, '#d9f1ff');
+  g.fillStyle = sky; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 160; i++) {
+    const x = rand() * w, y = h * .35 + rand() * h * .7, r = 18 + rand() * 46;
+    g.fillStyle = ['#2f7d32', '#3e9b3a', '#5ab845', '#7ccf5a', '#246b2a'][i % 5];
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+});
+element('janela', 'Janela', 'parede',
+  { swatch: '#a87645', fil: 'PLA marrom (moldura)', note: 'Moldura de 30 × 26 mm com grade 3 × 2. A paisagem é um adesivo colado atrás.' },
+  g => {
+    const x = -1.8, y = 4.7, w = 3.0, h = 2.6, t = 0.18, d = 0.22, z = ZW + d / 2;
+    decal(g, w - 0.1, h - 0.1, landscapeTex, x, y, ZW + 0.02);
+    box(g, w, t, d, x, y + h / 2 - t / 2, z, M.woodDark);
+    box(g, w, t, d, x, y - h / 2 + t / 2, z, M.woodDark);
+    box(g, t, h, d, x - w / 2 + t / 2, y, z, M.woodDark);
+    box(g, t, h, d, x + w / 2 - t / 2, y, z, M.woodDark);
+    box(g, 0.1, h - 2 * t, d * .8, x - w / 6, y, z, M.woodDark);
+    box(g, 0.1, h - 2 * t, d * .8, x + w / 6, y, z, M.woodDark);
+    box(g, w - 2 * t, 0.1, d * .8, x, y, z, M.woodDark);
+    box(g, w + 0.3, 0.14, 0.45, x, y - h / 2 - 0.07, ZW + 0.22, M.woodDark);
+  });
+
+element('wifi', 'Símbolo de Wi-Fi', 'parede',
+  { swatch: '#1f56c3', fil: 'PLA azul', note: 'Três arcos e um ponto, com 2 mm de espessura. Colar na parede.' },
+  g => {
+    const cx = 1.7, cy = 5.7, z = ZW + 0.1;
+    [0.35, 0.65, 0.95].forEach(r => add(g, new THREE.TorusGeometry(r, 0.09, 8, 28, Math.PI / 2), M.blue, cx, cy, z, { rz: Math.PI / 4 }));
+    add(g, new THREE.SphereGeometry(0.13, 16, 12), M.blue, cx, cy, z);
+  });
+
+element('engrenagem', 'Engrenagem', 'parede',
+  { swatch: '#1f56c3', fil: 'PLA azul', note: 'Engrenagem de 17 mm de diâmetro com 8 dentes e furo central.' },
+  g => {
+    const s = new THREE.Shape(), teeth = 8, n = teeth * 4;
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2, r = (i % 4 < 2) ? 0.85 : 0.64;
+      const px = Math.cos(a) * r, py = Math.sin(a) * r;
+      i ? s.lineTo(px, py) : s.moveTo(px, py);
+    }
+    const hole = new THREE.Path(); hole.absarc(0, 0, 0.28, 0, Math.PI * 2, true); s.holes.push(hole);
+    add(g, new THREE.ExtrudeGeometry(s, { depth: 0.15, bevelEnabled: false }), M.blue, 7.4, 6.0, ZW);
+  });
+
+element('planta-parede', 'Planta pendurada', 'decoracao',
+  { swatch: '#3f9f37', fil: 'PLA prata (lata) + PLA verde (folhas)', note: 'Latinha pendurada na parede do fundo, perto do canto esquerdo.' },
+  g => {
+    box(g, 0.12, 0.6, 0.5, -9.4, 4.4, ZW + 0.25, M.woodDark);
+    plant(g, -9.4, 3.85, ZW + 0.55, 0.36, 0.6, 1.1);
+  });
+
+// ------------------------------------------------------------ TECNOLOGIA
+const tvTex = canvasTex(1024, 600, (g, w, h) => {
+  const bg = g.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, '#1f63c9'); bg.addColorStop(1, '#174fa6');
+  g.fillStyle = bg; g.fillRect(0, 0, w, h);
+  // capelo
+  g.save(); g.translate(740, 120); g.strokeStyle = '#fff'; g.lineWidth = 12; g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(-110, 0); g.lineTo(0, -48); g.lineTo(110, 0); g.lineTo(0, 48); g.closePath(); g.stroke();
+  g.beginPath(); g.moveTo(-62, 28); g.lineTo(-62, 78); g.quadraticCurveTo(0, 110, 62, 78); g.lineTo(62, 28); g.stroke();
+  g.beginPath(); g.moveTo(110, 0); g.lineTo(110, 70); g.stroke(); g.restore();
+  const tile = (x, color, draw) => {
+    g.fillStyle = color; g.beginPath(); g.roundRect(x, 270, 230, 230, 22); g.fill();
+    g.save(); g.translate(x + 115, 385); draw(); g.restore();
+  };
+  tile(110, '#3f86e8', () => {
+    g.strokeStyle = '#fff'; g.lineWidth = 10; g.strokeRect(-70, -60, 140, 90);
+    g.beginPath(); g.moveTo(-95, 50); g.lineTo(95, 50); g.stroke();
+  });
+  tile(397, '#2f9a55', () => drawRecycle(g, 0, 8, 82, '#fff'));
+  tile(684, '#f29a24', () => {
+    g.strokeStyle = '#fff'; g.lineWidth = 10;
+    g.beginPath(); g.arc(0, -15, 45, Math.PI * .8, Math.PI * 2.2); g.stroke();
+    g.strokeRect(-22, 35, 44, 25);
+    for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + (i - 2) * .55; g.beginPath(); g.moveTo(Math.cos(a) * 62, -15 + Math.sin(a) * 62); g.lineTo(Math.cos(a) * 80, -15 + Math.sin(a) * 80); g.stroke(); }
+  });
+});
+element('lousa', 'Lousa digital (TV)', 'tecnologia',
+  { swatch: '#1f63c9', fil: 'PLA preto (moldura)', note: 'Moldura de 44 × 26 × 1,5 mm. A tela com os ícones é um adesivo.' },
+  g => {
+    box(g, 4.4, 2.6, 0.15, 4.4, 4.3, ZW + 0.075, M.black);
+    decal(g, 4.15, 2.35, tvTex, 4.4, 4.3, ZW + 0.16, { glow: true });
+  });
+
+element('projetor', 'Projetor com suporte', 'tecnologia',
+  { swatch: '#e9cfa6', fil: 'PLA bege + PLA preto (suporte)', note: 'Projetor de 14 × 7 × 10 mm preso por um braço que passa por cima da parede.' },
+  g => {
+    const x = 4.0, y = 6.15, z = ZW + 1.2;
+    add(g, new RoundedBoxGeometry(1.4, 0.7, 1.0, 3, 0.08), M.cardLight, x, y, z);
+    cyl(g, 0.2, 0.2, 0.12, x + 0.3, y, z + 0.53, M.black, { rx: Math.PI / 2 });
+    box(g, 0.25, 0.08, 0.05, x - 0.35, y + 0.1, z + 0.51, M.black);
+    box(g, 0.14, 1.2, 0.14, x, y + 0.95, z, M.black);
+    box(g, 0.14, 0.14, 1.75, x, y + 1.55, z - 0.82, M.black);
+    box(g, 0.14, 0.6, 0.14, x, y + 1.25, ZW - 0.37, M.black);
+  });
+
+element('impressora', 'Impressora 3D (estrutura vazada)', 'tecnologia',
+  { swatch: '#3f7dff', fil: 'Um filamento só (PLA cinza ou preto)', note: 'Estrutura aberta de 18 × 18 × 15 mm, sem tampa: colunas, torres do eixo Z, barra do eixo X com o cabeçote, mesa e uma pecinha sendo impressa. Hastes com 1,5 mm de espessura; imprimir em pé sobre a base, sem suporte.' },
+  g => {
+    const x = -8.3, y0 = 1.95, s = 1.8, d = 1.5, z = -2.9, t = 0.15, hgt = 1.8;
+    const top = y0 + hgt;
+    // base e moldura: quatro colunas nos cantos e o aro de cima, tudo vazado
+    box(g, s, t, d, x, y0 + t / 2, z, M.black);
+    [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([a, b]) =>
+      box(g, t, hgt - t, t, x + a * (s / 2 - t / 2), y0 + t + (hgt - t) / 2, z + b * (d / 2 - t / 2), M.black));
+    [-1, 1].forEach(b => box(g, s, t, t, x, top - t / 2, z + b * (d / 2 - t / 2), M.black));
+    [-1, 1].forEach(a => box(g, t, t, d - 2 * t, x + a * (s / 2 - t / 2), top - t / 2, z, M.black));
+    // torres do eixo Z (fusos) atrás da mesa, presas na base e numa travessa do aro de cima
+    const zt = z - d / 2 + 0.35;
+    box(g, s - 2 * t + 0.02, t, t, x, top - t / 2, zt, M.black);
+    [-1, 1].forEach(a => {
+      cyl(g, 0.06, 0.06, hgt - t, x + a * 0.6, y0 + hgt / 2, zt, M.gray, null, 10);
+      box(g, 0.16, 0.22, 0.16, x + a * 0.6, y0 + t + 0.11, zt, M.black);
+    });
+    // barra do eixo X com o cabeçote e o bico
+    const yx = y0 + 1.15;
+    box(g, 1.36, 0.1, 0.12, x, yx, zt, M.gray);
+    [-1, 1].forEach(a => box(g, 0.22, 0.24, 0.22, x + a * 0.6, yx, zt, M.black));
+    box(g, 0.34, 0.3, 0.28, x + 0.1, yx - 0.05, zt + 0.17, M.black);
+    add(g, new THREE.ConeGeometry(0.06, 0.16, 10), M.yellow, x + 0.1, yx - 0.28, zt + 0.24, { rx: Math.PI });
+    box(g, 0.08, 0.08, 0.02, x + 0.1, yx - 0.02, zt + 0.35, M.glow, { noPrint: true });
+    // mesa de impressão sobre o carro do eixo Y, com uma pecinha
+    box(g, 0.3, 0.2, 0.9, x, y0 + t + 0.1, z + 0.1, M.black);
+    box(g, 1.2, 0.07, 1.0, x, y0 + t + 0.235, z + 0.1, M.gray);
+    cyl(g, 0.16, 0.2, 0.3, x + 0.1, y0 + t + 0.42, zt + 0.24, M.blue, null, 16);
+  });
+
+element('filamentos', 'Rolos de filamento', 'tecnologia',
+  { swatch: '#f2c21b', fil: 'PLA amarelo e PLA azul', note: 'Dois carretéis de 9 mm de diâmetro deitados sobre a estante.' },
+  g => {
+    [[-6.6, M.yellow], [-5.75, M.blue]].forEach(([x, m]) => {
+      cyl(g, 0.45, 0.45, 0.55, x, 1.95 + 0.45, -2.6, m, { rz: Math.PI / 2 });
+      cyl(g, 0.2, 0.2, 0.57, x, 1.95 + 0.45, -2.6, M.black, { rz: Math.PI / 2 });
+    });
+  });
+
+function laptop(g, x, y, z, ry) {
+  const L = new THREE.Group(); L.position.set(x, y, z); L.rotation.y = ry; g.add(L);
+  box(L, 1.25, 0.07, 0.85, 0, 0.035, 0, M.black);
+  box(L, 1.05, 0.01, 0.45, 0, 0.075, 0.1, M.gray, { noPrint: true });
+  const scr = new THREE.Group(); scr.position.set(0, 0.07, -0.42); scr.rotation.x = -0.25; L.add(scr);
+  box(scr, 1.25, 0.85, 0.06, 0, 0.425, 0, M.black);
+  decal(scr, 1.1, 0.7, wifiScreenTex, 0, 0.43, 0.035, { glow: true });
+}
+const wifiScreenTex = canvasTex(256, 170, (g, w, h) => {
+  g.fillStyle = '#3d434c'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#fff'; g.lineWidth = 11; g.lineCap = 'round';
+  [26, 50, 74].forEach(r => { g.beginPath(); g.arc(w / 2, h * .78, r, -Math.PI * .78, -Math.PI * .22); g.stroke(); });
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(w / 2, h * .78, 7, 0, Math.PI * 2); g.fill();
+});
+
+// ------------------------------------------------------------ MÓVEIS
+function shelfBox(g, x, z, w, h, d, m = M.card) {
+  const t = 0.15;
+  box(g, w, t, d, x, t / 2, z, m);
+  box(g, w, t, d, x, h - t / 2, z, m);
+  box(g, t, h, d, x - w / 2 + t / 2, h / 2, z, m);
+  box(g, t, h, d, x + w / 2 - t / 2, h / 2, z, m);
+  box(g, w, h, 0.08, x, h / 2, z - d / 2 + 0.04, M.cardDark);
+}
+function books(g, x0, x1, y, z, h, d) {
+  let x = x0;
+  while (x < x1 - 0.2) {
+    const bw = 0.22 + rand() * 0.16, bh = h * (0.75 + rand() * 0.25);
+    box(g, bw - 0.02, bh, d, x + bw / 2, y + bh / 2, z, BOOK_COLORS[Math.floor(rand() * 4)]);
+    x += bw;
+  }
+}
+
+element('estante-baixa', 'Estante baixa com livros', 'moveis',
+  { swatch: '#c99d6c', fil: 'PLA marrom + PLA colorido (livros)', note: 'Estante de 42 × 19 × 16 mm com duas divisões. Livros e caixinhas impressos à parte.' },
+  g => {
+    const x = -7.3, w = 4.2, h = 1.95, d = 1.6, z = -2.9;
+    shelfBox(g, x, z, w, h, d);
+    box(g, 0.15, h, d, x + 0.3, h / 2, z, M.card);
+    books(g, x - w / 2 + 0.2, x + 0.2, 0.15, z + 0.1, 1.45, 1.1);
+    [[M.cardLight, 0.15], [M.green, 0.75]].forEach(([m, y], i) => {
+      box(g, 0.7, 0.55, 1.0, x + 1.05, y + 0.28, z + 0.1, i ? M.blue : M.cardLight);
+      box(g, 0.7, 0.55, 1.0, x + 1.8, y + 0.28, z + 0.1, i ? M.cardLight : M.green);
+    });
+  });
+
+element('estante-livros', 'Estante de livros', 'moveis',
+  { swatch: '#c99d6c', fil: 'PLA marrom + PLA colorido (livros)', note: 'Estante de 19 × 34 × 10 mm com duas prateleiras.' },
+  g => {
+    const x = 0.9, w = 1.9, h = 3.4, d = 1.0, z = ZW + 0.55;
+    shelfBox(g, x, z, w, h, d);
+    box(g, w, 0.15, d, x, 1.7, z, M.card);
+    books(g, x - w / 2 + 0.15, x + w / 2 - 0.15, 0.15, z + 0.05, 1.35, 0.8);
+    books(g, x - w / 2 + 0.15, x + w / 2 - 0.15, 1.775, z + 0.05, 1.35, 0.8);
+  });
+
+element('armario', 'Armário com lixeiras de coleta seletiva', 'moveis',
+  { swatch: '#c99d6c', fil: 'PLA marrom + PLA azul, verde, amarelo e vermelho', note: 'Armário de 25 × 30 × 16 mm. Na prateleira, quatro lixeirinhas nas cores da coleta seletiva.' },
+  g => {
+    const x = XR - 1.3, w = 2.5, h = 3.0, d = 1.6, z = -2.9;
+    shelfBox(g, x, z, w, h, d);
+    box(g, w, 0.15, d, x, 1.65, z, M.card);
+    const rTex = recycleTex('#e2c597', '#1f8a4c');
+    [-1, 1].forEach(s => {
+      box(g, w / 2 - 0.08, 1.45, 0.1, x + s * w / 4, 0.85, z + d / 2 - 0.05, M.cardLight);
+      decal(g, 0.85, 0.85, rTex, x + s * w / 4, 0.95, z + d / 2 + 0.005);
+      cyl(g, 0.05, 0.05, 0.12, x + s * 0.12, 0.95, z + d / 2 + 0.06, M.woodDark, { rx: Math.PI / 2 }, 10);
+    });
+    [M.blue, M.green, M.yellow, M.red].forEach((m, i) => {
+      const px = x - w / 2 + 0.42 + i * 0.55;
+      cyl(g, 0.26, 0.22, 0.6, px, 1.725 + 0.3, z + 0.1, m);
+    });
+  });
+
+function table(g, x, z) {
+  const r = 0.95, h = 1.6;
+  cyl(g, r, r, h, x, h / 2, z, M.cardDark);
+  for (let i = 0; i < 18; i++) {
+    const a = i / 18 * Math.PI * 2;
+    box(g, 0.26, h, 0.06, x + Math.cos(a) * (r + 0.02), h / 2, z + Math.sin(a) * (r + 0.02), M.wood, { ry: -a + Math.PI / 2 });
+  }
+  cyl(g, 1.45, 1.45, 0.15, x, h + 0.075, z, M.card, null, 40);
+  cyl(g, 1.05, 1.05, 0.1, x, 0.05, z, M.card, null, 40);
+}
+function chair(g, x, z, ry) {
+  const C = new THREE.Group(); C.position.set(x, 0, z); C.rotation.y = ry; g.add(C);
+  [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(([a, b]) => box(C, 0.14, 1.0, 0.09, a * 0.33, 0.5, b * 0.33, M.wood));
+  cyl(C, 0.55, 0.55, 0.3, 0, 1.15, 0, M.blue);
+  add(C, new THREE.TorusGeometry(0.42, 0.05, 8, 32), M.navy, 0, 1.3, 0, { rx: Math.PI / 2 });
+  box(C, 0.1, 0.9, 0.12, -0.42, 1.65, -0.3, M.wood);
+  box(C, 0.1, 0.9, 0.12, -0.42, 1.65, 0.3, M.wood);
+  box(C, 0.1, 0.65, 0.9, -0.45, 1.85, 0, M.cardLight);
+}
+function pencils(g, x, z) {
+  cyl(g, 0.26, 0.26, 0.55, x, 1.75 + 0.275, z, M.can);
+  const cols = [M.red, M.blue, M.yellow, M.green, M.red, M.blue];
+  cols.forEach((m, i) => {
+    const a = i / cols.length * Math.PI * 2;
+    cyl(g, 0.035, 0.035, 0.85, x + Math.cos(a) * 0.1, 1.75 + 0.6, z + Math.sin(a) * 0.1, m, { rx: Math.sin(a) * 0.15, rz: -Math.cos(a) * 0.15 }, 6);
+  });
+}
+[['1', -2.6], ['2', 3.7]].forEach(([n, tx]) => {
+  const tz = 1.0;
+  element('mesa-' + n, 'Mesa redonda ' + n, 'moveis',
+    { swatch: '#d9b27c', fil: 'PLA marrom claro', note: 'Mesa de 29 mm de diâmetro e 17,5 mm de altura, feita como um carretel com ripas de palito.' },
+    g => table(g, tx, tz));
+  element('cadeiras-' + n, 'Cadeiras da mesa ' + n, 'moveis',
+    { swatch: '#1f56c3', fil: 'PLA azul (assento) + PLA bege (pernas)', note: 'Duas cadeiras de assento redondo, como tampinhas de garrafa, com pernas de palito.' },
+    g => { chair(g, tx - 2.05, tz + 0.35, 0); chair(g, tx + 2.05, tz + 0.35, Math.PI); });
+  element('notebook-' + n, 'Notebook da mesa ' + n, 'tecnologia',
+    { swatch: '#1c1f24', fil: 'PLA preto', note: 'Notebook de 12,5 × 8,5 mm aberto. A tela com o Wi-Fi é um adesivo.' },
+    g => laptop(g, tx - 0.25, 1.75, tz - 0.1, 0.12));
+  element('lapis-' + n, 'Porta-lápis da mesa ' + n, 'decoracao',
+    { swatch: '#d4d8de', fil: 'PLA prata + lápis coloridos', note: 'Latinha de 5 mm com lápis. Os lápis podem ser palitos pintados.' },
+    g => pencils(g, tx + 0.75, tz + 0.2));
+});
+
+element('robo', 'Robô reciclado', 'decoracao',
+  { swatch: '#c99d6c', fil: 'PLA bege + PLA azul + PLA branco', note: 'Robô de 36 mm de altura. Imprimir em partes (cabeça, corpo, braços e pernas) e encaixar.' },
+  g => {
+    const x = -3.7, z = -2.3;
+    [-0.3, 0.3].forEach(s => {
+      box(g, 0.38, 1.0, 0.38, x + s, 0.5, z, M.cardLight);
+      box(g, 0.48, 0.22, 0.6, x + s, 0.11, z + 0.08, M.navy);
+    });
+    add(g, new RoundedBoxGeometry(1.35, 1.25, 0.85, 3, 0.08), M.card, x, 1.63, z);
+    decal(g, 0.75, 0.75, recycleTex(null, '#1f8a4c'), x, 1.63, z + 0.43, { transparent: true });
+    [-1, 1].forEach(s => {
+      box(g, 0.28, 0.95, 0.32, x + s * 0.83, 1.62, z, M.cardLight, { rz: s * 0.12 });
+      add(g, new THREE.SphereGeometry(0.2, 16, 12), M.blue, x + s * 0.9, 1.05, z);
+    });
+    cyl(g, 0.2, 0.2, 0.2, x, 2.33, z, M.gray);
+    add(g, new RoundedBoxGeometry(1.15, 0.9, 0.85, 3, 0.1), M.cardLight, x, 2.85, z);
+    [-0.24, 0.24].forEach(s => {
+      cyl(g, 0.2, 0.2, 0.08, x + s, 2.9, z + 0.44, M.white, { rx: Math.PI / 2 });
+      cyl(g, 0.1, 0.1, 0.09, x + s, 2.9, z + 0.47, M.blue, { rx: Math.PI / 2 });
+    });
+    box(g, 0.35, 0.06, 0.04, x, 2.62, z + 0.43, M.woodDark);
+    [-1, 1].forEach(s => cyl(g, 0.14, 0.14, 0.12, x + s * 0.63, 2.85, z, M.blue, { rz: Math.PI / 2 }));
+    cyl(g, 0.04, 0.04, 0.45, x, 3.5, z, M.gray, null, 8);
+    add(g, new THREE.SphereGeometry(0.11, 14, 10), M.blue, x, 3.75, z);
+  });
+
+element('pufes', 'Pufes (amarelo e verde)', 'moveis',
+  { swatch: '#f2c21b', fil: 'PLA amarelo e PLA verde', note: 'Dois pufes de 17 mm de diâmetro. Imprimir com a base achatada para não precisar de suporte.' },
+  g => {
+    [[-1.9, M.yellow], [-0.25, M.green]].forEach(([x, m]) => {
+      const p = add(g, new THREE.SphereGeometry(0.85, 32, 20), m, x, 0.6, -2.55);
+      p.scale.set(1, 0.72, 1);
+      add(g, new THREE.TorusGeometry(0.42, 0.06, 8, 24), m, x, 1.06, -2.55, { rx: Math.PI / 2 });
+    });
+  });
+
+function plant(g, x, y, z, r = 0.32, h = 0.55, size = 1) {
+  cyl(g, r, r, h, x, y + h / 2, z, M.can);
+  cyl(g, r * 0.92, r * 0.92, 0.04, x, y + h - 0.02, z, M.soil);
+  const n = Math.round(12 * size);
+  for (let i = 0; i < n; i++) {
+    const a = i / n * Math.PI * 2 + rand() * 0.4;
+    const reach = (0.25 + rand() * 0.5) * size, lift = (0.15 + rand() * 0.75) * size;
+    const lx = x + Math.cos(a) * reach, lz = z + Math.sin(a) * reach, ly = y + h + lift;
+    cyl(g, 0.02, 0.02, Math.hypot(reach, lift), (x + lx) / 2, (y + h + ly) / 2, (z + lz) / 2, M.leaf, {
+      rz: -Math.cos(a) * Math.atan2(reach, lift), rx: Math.sin(a) * Math.atan2(reach, lift) }, 5);
+    const leaf = add(g, new THREE.SphereGeometry(0.2 * size, 12, 8), i % 2 ? M.leaf : M.leaf2, lx, ly, lz, { ry: -a, rz: 0.5 });
+    leaf.scale.set(1.3, 0.25, 0.7);
+  }
+}
+element('planta-estante', 'Planta da estante', 'decoracao',
+  { swatch: '#3f9f37', fil: 'PLA prata + PLA verde', note: 'Latinha com planta sobre a estante de livros.' },
+  g => plant(g, 0.9, 3.4, ZW + 0.55, 0.32, 0.5, 1.05));
+element('planta-armario', 'Planta do armário', 'decoracao',
+  { swatch: '#3f9f37', fil: 'PLA prata + PLA verde', note: 'Latinha com planta sobre o armário.' },
+  g => plant(g, XR - 1.3, 3.0, -2.9, 0.36, 0.55, 1.15));
+
+// ------------------------------------------------------------ cotas e grade
+function label(text) {
+  const tex = canvasTex(256, 96, (g, w, h) => {
+    g.fillStyle = 'rgba(255,255,255,.92)'; g.beginPath(); g.roundRect(4, 8, w - 8, h - 16, 18); g.fill();
+    g.fillStyle = '#1c2430'; g.font = '700 54px Nunito, "Segoe UI", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, w / 2, h / 2 + 2);
+  });
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  s.scale.set(2.4, 0.9, 1); s.renderOrder = 10;
+  return s;
+}
+const dims = new THREE.Group();
+function dimLine(a, b, text, off) {
+  const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, depthTest: false });
+  const geo = new THREE.BufferGeometry().setFromPoints([a, b]);
+  const line = new THREE.Line(geo, lineMat); line.renderOrder = 9; dims.add(line);
+  const dir = b.clone().sub(a).normalize();
+  [[a, dir.clone().negate()], [b, dir]].forEach(([p, d]) => {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.4, 12), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false }));
+    cone.position.copy(p); cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d); cone.renderOrder = 9;
+    dims.add(cone);
+  });
+  const l = label(text); l.position.copy(a.clone().add(b).multiplyScalar(0.5).add(off)); dims.add(l);
+}
+dimLine(new THREE.Vector3(-W / 2, -0.3, D / 2 + 0.9), new THREE.Vector3(W / 2, -0.3, D / 2 + 0.9), '21 cm', new THREE.Vector3(0, -0.7, 0));
+dimLine(new THREE.Vector3(W / 2 + 0.9, -0.3, -D / 2), new THREE.Vector3(W / 2 + 0.9, -0.3, D / 2), '8 cm', new THREE.Vector3(1.3, 0, 0));
+dimLine(new THREE.Vector3(-W / 2 - 0.9, 0, -D / 2), new THREE.Vector3(-W / 2 - 0.9, H, -D / 2), '7 cm', new THREE.Vector3(-1.3, 0, 0));
+scene.add(dims);
+
+const grid = new THREE.GridHelper(40, 40, 0x6b5a46, 0x9c8a74);
+grid.position.y = -T - 0.01; grid.visible = false;
+scene.add(grid);
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 48), new THREE.ShadowMaterial({ opacity: 0.18 }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -T - 0.02; ground.receiveShadow = true;
+scene.add(ground);
+
+// ------------------------------------------------------------ painel de peças
+const byId = Object.fromEntries(elements.map(e => [e.id, e]));
+const catsEl = document.getElementById('cats');
+function renderPanel() {
+  catsEl.innerHTML = '';
+  CATS.forEach(c => {
+    const items = elements.filter(e => e.cat === c.id);
+    const block = document.createElement('div'); block.className = 'cat-block';
+    const head = document.createElement('div'); head.className = 'cat-head';
+    head.innerHTML = `<label><input type="checkbox" id="cat-${c.id}"> ${c.name}</label><span class="count" id="cnt-${c.id}"></span>`;
+    block.appendChild(head);
+    const ul = document.createElement('ul'); ul.className = 'items';
+    items.forEach(e => {
+      const li = document.createElement('li'); li.dataset.id = e.id;
+      li.innerHTML = `<label><input type="checkbox" id="el-${e.id}" checked><span class="swatch" style="background:${e.swatch}"></span><span>${e.name}</span></label><button class="mini" data-pick="${e.id}" aria-label="Selecionar ${e.name}">ver</button>`;
+      ul.appendChild(li);
+    });
+    block.appendChild(ul);
+    catsEl.appendChild(block);
+    head.querySelector('input').addEventListener('change', ev => {
+      items.forEach(e => setVisible(e, ev.target.checked));
+      syncPanel();
+    });
+  });
+  catsEl.addEventListener('change', ev => {
+    const id = ev.target.id.startsWith('el-') ? ev.target.id.slice(3) : null;
+    if (id) { setVisible(byId[id], ev.target.checked); syncPanel(); }
+  });
+  catsEl.addEventListener('click', ev => {
+    const id = ev.target.dataset && ev.target.dataset.pick;
+    if (id) { select(byId[id]); focusOn(byId[id]); }
+  });
+}
+function setVisible(e, v) { e.group.visible = v; if (!v && selected === e) select(null); }
+function syncPanel() {
+  let vis = 0;
+  CATS.forEach(c => {
+    const items = elements.filter(e => e.cat === c.id);
+    const on = items.filter(e => e.group.visible).length;
+    vis += on;
+    const box = document.getElementById('cat-' + c.id);
+    box.checked = on === items.length; box.indeterminate = on > 0 && on < items.length;
+    document.getElementById('cnt-' + c.id).textContent = `${on}/${items.length}`;
+  });
+  elements.forEach(e => {
+    document.getElementById('el-' + e.id).checked = e.group.visible;
+    document.querySelector(`li[data-id="${e.id}"]`).classList.toggle('active', selected === e);
+  });
+  document.getElementById('pieceCount').textContent = `${vis} de ${elements.length} peças visíveis`;
+}
+renderPanel();
+
+document.getElementById('showAll').onclick = () => { elements.forEach(e => setVisible(e, true)); syncPanel(); };
+document.getElementById('hideAll').onclick = () => { elements.forEach(e => setVisible(e, false)); syncPanel(); };
+
+// ------------------------------------------------------------ seleção
+let selected = null;
+const selBox = new THREE.Box3Helper(new THREE.Box3(), 0x2f8fff);
+selBox.visible = false; selBox.material.depthTest = false; selBox.renderOrder = 11;
+scene.add(selBox);
+const selCard = document.getElementById('sel');
+function bboxOf(e) {
+  const b = new THREE.Box3();
+  e.group.traverse(o => { if (o.isMesh && !(o.userData.noPrint && o.geometry.type === 'PlaneGeometry')) b.expandByObject(o); });
+  return b;
+}
+function mm(v) { return (Math.round(v * 100) / 10).toLocaleString('pt-BR'); }
+function select(e) {
+  selected = e;
+  if (!e) { selBox.visible = false; selCard.hidden = true; syncPanel(); return; }
+  const b = bboxOf(e); selBox.box.copy(b); selBox.visible = true;
+  const s = b.getSize(new THREE.Vector3());
+  document.getElementById('selCat').textContent = CATS.find(c => c.id === e.cat).name;
+  document.getElementById('selName').textContent = e.name;
+  document.getElementById('selSize').textContent = `${mm(s.x)} × ${mm(s.y)} × ${mm(s.z)} mm (L × A × P)`;
+  document.getElementById('selFil').textContent = e.fil;
+  document.getElementById('selNote').textContent = e.note;
+  selCard.hidden = false;
+  syncPanel();
+}
+document.getElementById('selClose').onclick = () => select(null);
+document.getElementById('selHide').onclick = () => { if (selected) { const e = selected; setVisible(e, false); syncPanel(); } };
+document.getElementById('selIsolate').onclick = () => {
+  if (!selected) return;
+  elements.forEach(e => setVisible(e, e === selected));
+  select(selected); focusOn(selected); syncPanel();
+};
+document.getElementById('selFocus').onclick = () => selected && focusOn(selected);
+document.getElementById('selStl').onclick = () => selected && downloadStl([selected], selected.id);
+document.getElementById('stlAll').onclick = () => {
+  const vis = elements.filter(e => e.group.visible);
+  if (vis.length) downloadStl(vis, vis.length === elements.length ? 'maquete-completa' : 'maquete-pecas-visiveis');
+};
+
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+let down = null;
+canvas.addEventListener('pointerdown', ev => { down = [ev.clientX, ev.clientY]; });
+canvas.addEventListener('pointerup', ev => {
+  if (!down || Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 5) return;
+  const r = canvas.getBoundingClientRect();
+  ptr.set((ev.clientX - r.left) / r.width * 2 - 1, -(ev.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(ptr, camera);
+  const meshes = [];
+  elements.forEach(e => e.group.visible && e.group.traverse(o => o.isMesh && meshes.push(o)));
+  const hit = ray.intersectObjects(meshes, false)[0];
+  select(hit ? byId[hit.object.userData.elId] : null);
+});
+
+// ------------------------------------------------------------ exportar STL (mm, Z para cima)
+const exporter = new STLExporter();
+function downloadStl(list, name) {
+  scene.updateMatrixWorld(true);
+  const root = new THREE.Group();
+  list.forEach(e => e.group.traverse(o => {
+    if (!o.isMesh || o.userData.noPrint) return;
+    const m = new THREE.Mesh(o.geometry, o.material);
+    m.matrixAutoUpdate = false; m.matrix.copy(o.matrixWorld);
+    root.add(m);
+  }));
+  const wrap = new THREE.Group();
+  wrap.scale.setScalar(10);            // cm -> mm
+  wrap.rotation.x = Math.PI / 2;       // Y para cima -> Z para cima
+  wrap.add(root);
+  wrap.updateMatrixWorld(true);
+  const data = exporter.parse(wrap, { binary: true });
+  const url = URL.createObjectURL(new Blob([data], { type: 'model/stl' }));
+  const a = document.createElement('a'); a.href = url; a.download = name + '.stl';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// ------------------------------------------------------------ câmera e vistas
+const VIEWS = {
+  iso: [new THREE.Vector3(8.5, 12, 25), new THREE.Vector3(0, 2.4, 0)],
+  front: [new THREE.Vector3(0, 4, 38), new THREE.Vector3(0, 3, 0)],
+  top: [new THREE.Vector3(0, 40, 0.01), new THREE.Vector3(0, 0, 0)],
+  left: [new THREE.Vector3(-26, 8, 10), new THREE.Vector3(0, 3, 0)],
+  right: [new THREE.Vector3(26, 8, 10), new THREE.Vector3(0, 3, 0)],
+};
+let tween = null;
+// afasta a câmera em telas estreitas para a maquete inteira caber na largura
+const fitScale = () => Math.max(1, 1.5 / camera.aspect);
+function flyTo(pos, target, fit = true) {
+  if (fit) pos = target.clone().add(pos.clone().sub(target).multiplyScalar(fitScale()));
+  tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), k: 0 };
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) tween.k = 1;
+}
+function focusOn(e) {
+  const b = bboxOf(e), c = b.getCenter(new THREE.Vector3()), r = Math.max(b.getSize(new THREE.Vector3()).length(), 1.5);
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  if (dir.z < 0.2) dir.set(0.35, 0.45, 0.82).normalize();
+  flyTo(c.clone().add(dir.multiplyScalar(r * 2.2 + 2)), c, false);
+}
+document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => flyTo(...VIEWS[b.dataset.view]));
+camera.position.copy(VIEWS.iso[0]); controls.target.copy(VIEWS.iso[1]);
+
+const spinBtn = document.getElementById('spin');
+spinBtn.onclick = () => {
+  controls.autoRotate = !controls.autoRotate;
+  spinBtn.setAttribute('aria-pressed', controls.autoRotate);
+};
+controls.autoRotateSpeed = 1.2;
+
+// ------------------------------------------------------------ opções de exibição
+document.getElementById('optDims').onchange = ev => dims.visible = ev.target.checked;
+document.getElementById('optGrid').onchange = ev => grid.visible = ev.target.checked;
+document.getElementById('optShadow').onchange = ev => { sun.castShadow = ev.target.checked; ground.visible = ev.target.checked; };
+document.getElementById('optWire').onchange = ev => {
+  scene.traverse(o => { if (o.isMesh && o.material && 'wireframe' in o.material && o.parent !== dims) o.material.wireframe = ev.target.checked; });
+};
+const panel = document.getElementById('panel'), pt = document.getElementById('panelToggle');
+pt.onclick = () => {
+  const c = panel.classList.toggle('collapsed');
+  pt.textContent = c ? 'Mostrar lista de peças' : 'Esconder lista de peças';
+  pt.setAttribute('aria-expanded', !c);
+  setTimeout(resize, 0);
+};
+
+// cor do fundo acompanha o tema da página
+function applyTheme() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--stage').trim();
+  scene.background = new THREE.Color(v || '#d9cbb8');
+}
+applyTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+
+// ------------------------------------------------------------ laço de desenho
+const stage = document.getElementById('stage');
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+camera.position.copy(VIEWS.iso[1].clone().add(VIEWS.iso[0].clone().sub(VIEWS.iso[1]).multiplyScalar(fitScale())));
+
+function frame() {
+  if (tween) {
+    tween.k = Math.min(1, tween.k + 0.06);
+    const e = 1 - Math.pow(1 - tween.k, 3);
+    camera.position.lerpVectors(tween.p0, tween.p1, e);
+    controls.target.lerpVectors(tween.t0, tween.t1, e);
+    if (tween.k >= 1) tween = null;
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+syncPanel();
+frame();
+window.__maquete = { elements, scene, camera };
+</script>
+</body>
+</html>
