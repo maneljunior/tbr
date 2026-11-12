@@ -122,6 +122,15 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
 .toggle-list { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 14px; }
 .toggle-list label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 
+#vinciBox { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--panel-2); }
+.vfield { display: grid; grid-template-columns: 1fr 64px; gap: 2px 8px; align-items: center; margin-bottom: 8px; font-size: 13.5px; }
+.vfield label { grid-column: 1 / -1; font-weight: 700; }
+.vfield input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; }
+.vfield input[type="number"] { width: 64px; font: 600 14px var(--font-body); padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); font-variant-numeric: tabular-nums; }
+.vread { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 4px 0 0; font-size: 13px; }
+.vread dt { color: var(--muted); }
+.vread dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.vread dd.warn { color: #d6332c; }
 #panelToggle { display: none; }
 
 @media (max-width: 760px) {
@@ -195,6 +204,28 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
           <button class="btn" id="hideAll">Esconder tudo</button>
           <button class="btn primary" id="stlAll">Baixar STL do que está visível</button>
         </div>
+      </div>
+
+      <div id="vinciBox">
+        <div class="section-title">Tamanho do VinciBot</div>
+        <div class="vfield">
+          <label for="vW">Largura (cm)</label>
+          <input type="range" id="vWr" min="2" max="5.5" step="0.1" aria-label="Largura do VinciBot">
+          <input type="number" id="vW" min="2" max="5.5" step="0.1">
+        </div>
+        <div class="vfield">
+          <label for="vH">Altura com a alça (cm)</label>
+          <input type="range" id="vHr" min="3" max="9" step="0.1" aria-label="Altura total do VinciBot">
+          <input type="number" id="vH" min="3" max="9" step="0.1">
+        </div>
+        <dl class="vread">
+          <dt>Medidas</dt><dd id="vDims"></dd>
+          <dt>Folga até a parede</dt><dd id="vWall"></dd>
+          <dt>Folga até a cadeira</dt><dd id="vChair"></dd>
+          <dt>Vão da alça</dt><dd id="vGrip"></dd>
+          <dt>Vigas Technic</dt><dd id="vBeams"></dd>
+          <dt>Peso estimado</dt><dd id="vMass"></dd>
+        </dl>
       </div>
 
       <div id="cats"></div>
@@ -529,28 +560,155 @@ element('impressora', 'Impressora 3D (estrutura vazada)', 'tecnologia',
     cyl(g, 0.16, 0.2, 0.3, x + 0.1, y0 + t + 0.42, zt + 0.24, M.blue, null, 16);
   });
 
-element('vincibot', 'VinciBot em miniatura (com alça)', 'tecnologia',
-  { swatch: '#f6f6f2', fil: 'Um filamento só (PLA branco)', note: 'Robozinho de 12 × 17 × 11 mm, do tamanho de uma cadeira, no chão em frente à estante da impressora. A alça no alto tem vão de 8 × 4,5 mm para o VinciBot de verdade encaixar a garra e carregar. Não colar na base: ele fica solto.' },
-  g => {
-    const x = -8.0, z = -0.8;
-    // rodas e apoio
-    [-1, 1].forEach(s => {
-      cyl(g, 0.28, 0.28, 0.14, x + s * 0.55, 0.28, z, M.black, { rz: Math.PI / 2 }, 20);
-      cyl(g, 0.1, 0.1, 0.16, x + s * 0.55, 0.28, z, M.gray, { rz: Math.PI / 2 }, 12);
-    });
-    add(g, new THREE.SphereGeometry(0.11, 12, 8), M.gray, x, 0.11, z - 0.3);
-    add(g, new THREE.SphereGeometry(0.11, 12, 8), M.gray, x, 0.11, z + 0.3);
-    // corpo arredondado com faixa colorida
-    add(g, new RoundedBoxGeometry(1.1, 0.9, 1.0, 4, 0.22), M.white, x, 0.65, z);
-    box(g, 1.12, 0.08, 1.02, x, 0.42, z, M.yellow);
-    // tela de LED com olhos e sorriso
-    add(g, new RoundedBoxGeometry(0.8, 0.5, 0.06, 2, 0.04), M.black, x, 0.72, z + 0.5);
-    [-0.16, 0.16].forEach(s => box(g, 0.1, 0.12, 0.02, x + s, 0.78, z + 0.535, M.glow, { noPrint: true }));
-    [-0.12, -0.04, 0.04, 0.12].forEach((s, i) => box(g, 0.06, 0.05, 0.02, x + s, (i === 0 || i === 3) ? 0.64 : 0.61, z + 0.535, M.glow, { noPrint: true }));
-    // alça para o robô de verdade carregar
-    [-1, 1].forEach(s => box(g, 0.14, 0.5, 0.16, x + s * 0.47, 1.05 + 0.25, z, M.white));
-    box(g, 1.08, 0.16, 0.16, x, 1.55 + 0.08, z, M.white);
+// VinciBot: reconstruído sempre que a equipe muda a largura ou a altura no painel
+const VINCI = { width: 3.8, total: 7.0 };
+try {
+  const saved = JSON.parse(localStorage.getItem('vinci-size') || 'null');
+  if (saved && saved.width && saved.total) Object.assign(VINCI, saved);
+} catch (e) { /* sem armazenamento: usa o padrão */ }
+const orange = mat('orange', 0xf47b20, { roughness: .45 });
+const holeMat = mat('hole', 0x8f969f, { roughness: .6 });
+const btnMat = mat('btn', 0xe2661a, { roughness: .5 });
+let vinciRoot = null;
+
+element('vincibot', 'VinciBot (com alça)', 'tecnologia',
+  { swatch: '#f47b20', fil: 'Um filamento só, impresso oco',
+    note: 'Largura e altura se ajustam no painel, em “Tamanho do VinciBot”. A alça é um quadro de vigas Technic em medidas reais de LEGO (furos de 4,8 mm a cada 8 mm), para o VinciBot de verdade encaixar a garra ou pinos LEGO e levar o robô até o cenário. A altura da alça sobe de 8 em 8 mm. Para ficar leve: 2 paredes (0,8 mm), 4 camadas no topo, 3 na base e 5% de preenchimento giroide. Imprimir em pé, sem suporte. Não colar na base.' },
+  g => { vinciRoot = new THREE.Group(); vinciRoot.name = 'vincibot-corpo'; g.add(vinciRoot); });
+
+function buildVinci() {
+  const v = vinciRoot;
+  while (v.children.length) {
+    const c = v.children[0]; v.remove(c);
+    c.traverse(o => o.geometry && o.geometry.dispose());
+  }
+  const w = VINCI.width, k = w / 3.6;
+  const d = w * 1.08, h = w * 0.72, y0 = 0.28 * k, yTop = y0 + h, zf = d / 2;
+  // rodas escondidas embaixo e rodízios
+  [-1, 1].forEach(s => cyl(v, 0.32 * k, 0.32 * k, 0.3 * k, s * (w / 2 - 0.5 * k), 0.32 * k, 0.15 * k, M.black, { rz: Math.PI / 2 }, 24));
+  [-1, 1].forEach(s => add(v, new THREE.SphereGeometry(0.16 * k, 14, 10), M.gray, 0, 0.16 * k, s * (d / 2 - 0.45 * k)));
+  // corpo branco
+  const rW = 0.5 * k;                        // raio das quinas do corpo
+  add(v, new RoundedBoxGeometry(w, h, d, 6, rW), M.white, 0, y0 + h / 2, 0);
+  // carcaça laranja: topo e frente, com a mesma curva da quina do corpo (perfil lateral extrudado na largura)
+  const rb = 0.15 * k, t = 0.3 * k, e = 0.025, yb = y0 + 0.12 * k;
+  const zF = zf + e, yT = yTop + e, zB = -d / 2 + 0.3 * k;
+  const P = (z, y) => [-z, y];               // forma no plano local (u = -z, v = y)
+  const sh = new THREE.Shape();
+  sh.moveTo(...P(zB, yT));
+  sh.lineTo(...P(zf - rW, yT));
+  sh.absarc(...P(zf - rW, yTop - rW), rW + e, Math.PI / 2, Math.PI, false);
+  sh.lineTo(...P(zF, yb + rb));
+  sh.quadraticCurveTo(...P(zF, yb), ...P(zF - rb, yb));
+  sh.lineTo(...P(zF - t, yb));
+  sh.lineTo(...P(zF - t, yT - t));
+  sh.lineTo(...P(zB, yT - t));
+  sh.closePath();
+  const shellW = w + 2 * e;
+  add(v, new THREE.ExtrudeGeometry(sh, { depth: shellW, bevelEnabled: false, curveSegments: 16 }), orange, -shellW / 2, 0, 0, { ry: Math.PI / 2 });
+  // tela preta com dois olhos de LED em forma de “0”
+  const dispW = w * 0.62, dispH = h * 0.5, dispY = y0 + h * 0.5;
+  add(v, new RoundedBoxGeometry(dispW, dispH, 0.1 * k, 3, 0.04 * k), M.black, 0, dispY, zF + 0.03 * k);
+  const eye = ['.XXX.', 'X...X', 'X...X', 'X...X', 'X...X', 'X...X', '.XXX.'];
+  const sp = dispH * 0.11, dot = sp * 0.62;
+  [-1, 1].forEach(s => eye.forEach((row, r) => [...row].forEach((ch, c) => {
+    if (ch === 'X') box(v, dot, dot, 0.02 * k, s * dispW * 0.22 + (c - 2) * sp, dispY + (3 - r) * sp, zF + 0.085 * k, M.white, { noPrint: true });
+  })));
+  // topo: furos de encaixe, furo central e três botões
+  const yHole = yT + 0.004;
+  const hole = (x, z, r = 0.11 * k) => cyl(v, r, r, 0.012, x, yHole, z, holeMat, { noPrint: true }, 16);
+  const zTopFront = zF - rW - 0.15 * k;
+  [-1, 1].forEach(s => {
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) hole(s * (0.55 + i * 0.32) * k, zTopFront - j * 0.32 * k);
   });
+  hole(0, 0.1 * k, 0.26 * k);
+  [-0.55, 0, 0.55].forEach(xb => add(v, new RoundedBoxGeometry(0.45 * k, 0.05 * k, 0.32 * k, 2, 0.02 * k), btnMat, xb * k, yT + 0.02 * k, zB + 0.35 * k));
+  // laterais brancas: furos de encaixe e pino laranja
+  [-1, 1].forEach(s => {
+    const xs = s * (w / 2 + 0.006);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) {
+      if (i === 1 && j === 1) continue;
+      cyl(v, 0.11 * k, 0.11 * k, 0.012, xs, y0 + h * (0.42 + j * 0.24), (i - 1.5) * 0.36 * k - 0.2 * k, holeMat, { rz: Math.PI / 2, noPrint: true }, 16);
+    }
+    cyl(v, 0.11 * k, 0.11 * k, 0.12 * k, s * (w / 2 + 0.05 * k), y0 + h * 0.66, 0.16 * k, orange, { rz: Math.PI / 2 }, 16);
+  });
+  // alça: vigas Technic em medidas reais de LEGO (não escalam com o robô).
+  // Duas vigas em pé, rentes às laterais, e no alto uma viga em arco suave:
+  // onde quer que a garra pegue, o robô escorrega até ficar pendurado pelo centro.
+  const X = w / 2 - LEGO.w / 2;                                             // vigas rentes às laterais
+  const sag = Math.min(0.5, X * 0.3);                                       // quanto o meio do arco sobe
+  const zH = -0.15 * k;
+  // base de cada lado: viga deitada de 3 furos presa ao topo por dois pinos pretos;
+  // a viga em pé encaixa no furo do meio com um pino cinza
+  [-1, 1].forEach(s => {
+    const bx = s * X, by = yT + LEGO.t / 2;
+    add(v, technicBeam(3), M.white, bx, by, zH - LEGO.pitch, { rx: -Math.PI / 2, rz: -Math.PI / 2 });
+    [-1, 1].forEach(j => {
+      cyl(v, LEGO.hole, LEGO.hole, LEGO.t + 0.3, bx, yT + LEGO.t / 2 - 0.15, zH + j * LEGO.pitch, M.black, null, 16);
+      cyl(v, 0.3, 0.3, 0.05, bx, yT + LEGO.t + 0.025, zH + j * LEGO.pitch, M.black, null, 16);
+    });
+    cyl(v, LEGO.hole, LEGO.hole, LEGO.t, bx, by, zH, M.gray, null, 16);
+  });
+  const firstY = yT + LEGO.t + LEGO.w / 2 - 0.05;                           // primeiro furo, apoiado na viga deitada
+  const nV = Math.max(2, Math.floor((VINCI.total - LEGO.w / 2 - sag - firstY) / LEGO.pitch + 1e-6) + 1);
+  const topY = firstY + (nV - 1) * LEGO.pitch;
+  [-1, 1].forEach(s => add(v, technicBeam(nV), M.white, s * X, firstY, zH, { rz: Math.PI / 2 }));
+  const arc = technicArc(X, sag);
+  add(v, arc.geo, M.white, 0, topY, zH);
+  v.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.elId = 'vincibot'; } });
+  VINCI.grip = { w: 2 * X - LEGO.w, h: topY - LEGO.w / 2 - yT, hMid: topY + sag - LEGO.w / 2 - yT };
+  VINCI.beams = { nH: arc.n, nV };
+  VINCI.dims = { d: d + 0.13 * k };
+  VINCI.massG = vinciMass(w, h, d, 2 * nV + arc.n);
+}
+
+// viga Technic: n furos a 8 mm, pontas arredondadas, furos de 4,8 mm, 7,2 mm de espessura;
+// começa no primeiro furo (origem) e segue no eixo +x
+const LEGO = { pitch: 0.8, w: 0.74, t: 0.72, hole: 0.24 };
+function technicBeam(n) {
+  const L = (n - 1) * LEGO.pitch, r = LEGO.w / 2;
+  const s = new THREE.Shape();
+  s.moveTo(0, -r); s.lineTo(L, -r);
+  s.absarc(L, 0, r, -Math.PI / 2, Math.PI / 2, false);
+  s.lineTo(0, r);
+  s.absarc(0, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+  for (let i = 0; i < n; i++) {
+    const hp = new THREE.Path(); hp.absarc(i * LEGO.pitch, 0, LEGO.hole, 0, Math.PI * 2, true); s.holes.push(hp);
+  }
+  const g = new THREE.ExtrudeGeometry(s, { depth: LEGO.t, bevelEnabled: false, curveSegments: 20 });
+  g.translate(0, 0, -LEGO.t / 2);
+  return g;
+}
+
+// viga Technic em arco: liga (-X, 0) a (X, 0) subindo `sag` no meio, com furos espaçados ao longo do arco
+function technicArc(X, sag) {
+  const r = LEGO.w / 2;
+  const R = (X * X + sag * sag) / (2 * sag), cy = sag - R;
+  const aR = Math.atan2(-cy, X), aL = Math.PI - aR;                         // ponta direita e esquerda
+  const n = Math.max(2, Math.round(R * (aL - aR) / LEGO.pitch) + 1);
+  const s = new THREE.Shape();
+  const pt = (a, rad) => [Math.cos(a) * rad, cy + Math.sin(a) * rad];
+  s.moveTo(...pt(aR, R + r));
+  s.absarc(0, cy, R + r, aR, aL, false);
+  s.absarc(...pt(aL, R), r, aL, aL + Math.PI, false);
+  s.absarc(0, cy, R - r, aL, aR, true);
+  s.absarc(...pt(aR, R), r, aR + Math.PI, aR + 2 * Math.PI, false);
+  for (let i = 0; i < n; i++) {
+    const a = aR + (aL - aR) * i / (n - 1);
+    const hp = new THREE.Path(); hp.absarc(...pt(a, R), LEGO.hole, 0, Math.PI * 2, true); s.holes.push(hp);
+  }
+  const geo = new THREE.ExtrudeGeometry(s, { depth: LEGO.t, bevelEnabled: false, curveSegments: 24 });
+  geo.translate(0, 0, -LEGO.t / 2);
+  return { geo, n };
+}
+
+// estimativa: casca de 0,8 mm + 5% de preenchimento + vigas maciças, PLA a 1,24 g/cm³
+function vinciMass(w, h, d, holes) {
+  const shell = 2 * (w * h + w * d + h * d) * 0.08;
+  const infill = Math.max(0, (w - 0.16) * (h - 0.16) * (d - 0.16)) * 0.05;
+  const beams = holes * (LEGO.pitch * LEGO.w - Math.PI * LEGO.hole ** 2) * LEGO.t;
+  return (shell + infill + beams) * 1.24;
+}
 
 element('filamentos', 'Rolos de filamento', 'tecnologia',
   { swatch: '#f2c21b', fil: 'PLA amarelo e PLA azul', note: 'Dois carretéis de 9 mm de diâmetro deitados sobre a estante.' },
@@ -662,7 +820,7 @@ function pencils(g, x, z) {
     cyl(g, 0.035, 0.035, 0.85, x + Math.cos(a) * 0.1, 1.75 + 0.6, z + Math.sin(a) * 0.1, m, { rx: Math.sin(a) * 0.15, rz: -Math.cos(a) * 0.15 }, 6);
   });
 }
-[['1', -2.6], ['2', 3.7]].forEach(([n, tx]) => {
+[['1', -1.9], ['2', 3.7]].forEach(([n, tx]) => {
   const tz = 1.0;
   element('mesa-' + n, 'Mesa redonda ' + n, 'moveis',
     { swatch: '#d9b27c', fil: 'PLA marrom claro', note: 'Mesa de 29 mm de diâmetro e 17,5 mm de altura, feita como um carretel com ripas de palito.' },
@@ -774,6 +932,41 @@ scene.add(ground);
 
 // ------------------------------------------------------------ painel de peças
 const byId = Object.fromEntries(elements.map(e => [e.id, e]));
+
+// ------------------------------------------------------------ VinciBot: tamanho, posição no vão e folgas
+const MIN_GAP = 0.8;   // folga mínima confortável para a garra, em cm
+function placeVinci() {
+  buildVinci();
+  scene.updateMatrixWorld(true);
+  const chairs = new THREE.Box3().setFromObject(byId['cadeiras-1'].group);
+  const gapL = XL, gapR = chairs.min.x;
+  const d = VINCI.dims.d;
+  vinciRoot.position.set((gapL + gapR) / 2, 0, -2.1 + 0.25 + d / 2);
+  scene.updateMatrixWorld(true);
+  const b = bboxOf(byId.vincibot);
+  const s = b.getSize(new THREE.Vector3());
+  const wall = b.min.x - gapL, chair = gapR - b.max.x;
+  const set = (id, txt, bad) => { const el = document.getElementById(id); el.textContent = txt; el.classList.toggle('warn', !!bad); };
+  set('vDims', `${mm(s.x)} × ${mm(s.y)} × ${mm(s.z)} mm`);
+  set('vWall', wall < 0 ? 'encosta na parede' : `${mm(wall)} mm`, wall < MIN_GAP);
+  set('vChair', chair < 0 ? 'encosta na cadeira' : `${mm(chair)} mm`, chair < MIN_GAP);
+  set('vGrip', `${mm(VINCI.grip.w)} mm de largura · ${mm(VINCI.grip.h)} a ${mm(VINCI.grip.hMid)} mm de altura`);
+  set('vBeams', `2 retas de ${VINCI.beams.nV} furos + 1 em arco de ${VINCI.beams.nH} furos`);
+  set('vMass', `cerca de ${Math.round(VINCI.massG)} g`);
+  if (selected === byId.vincibot) select(byId.vincibot);
+  try { localStorage.setItem('vinci-size', JSON.stringify({ width: VINCI.width, total: VINCI.total })); } catch (e) { /* ignora */ }
+}
+[['vW', 'vWr', 'width'], ['vH', 'vHr', 'total']].forEach(([num, rng, key]) => {
+  const n = document.getElementById(num), r = document.getElementById(rng);
+  n.value = r.value = VINCI[key];
+  const apply = val => {
+    const v = Math.min(+n.max, Math.max(+n.min, parseFloat(String(val).replace(',', '.')) || VINCI[key]));
+    VINCI[key] = v; n.value = r.value = v;
+    placeVinci();
+  };
+  r.addEventListener('input', () => apply(r.value));
+  n.addEventListener('change', () => apply(n.value));
+});
 const catsEl = document.getElementById('cats');
 function renderPanel() {
   catsEl.innerHTML = '';
@@ -913,7 +1106,7 @@ const VIEWS = {
 };
 let tween = null;
 // afasta a câmera em telas estreitas para a maquete inteira caber na largura
-const fitScale = () => Math.max(1, 1.5 / camera.aspect);
+const fitScale = () => (isFinite(camera.aspect) && camera.aspect > 0) ? Math.max(1, 1.5 / camera.aspect) : 1;
 function flyTo(pos, target, fit = true) {
   if (fit) pos = target.clone().add(pos.clone().sub(target).multiplyScalar(fitScale()));
   tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), k: 0 };
@@ -962,6 +1155,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme
 const stage = document.getElementById('stage');
 function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;   // aba escondida: espera ter tamanho de verdade
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
@@ -982,6 +1176,7 @@ function frame() {
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
+placeVinci();
 syncPanel();
 frame();
 window.__maquete = { elements, scene, camera };
