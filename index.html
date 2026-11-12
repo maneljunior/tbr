@@ -638,16 +638,11 @@ function buildVinci() {
   const X = w / 2 - LEGO.w / 2;                                             // vigas rentes às laterais
   const sag = Math.min(0.5, X * 0.3);                                       // quanto o meio do arco sobe
   const zH = -0.15 * k;
-  // base de cada lado: viga deitada de 3 furos presa ao topo por dois pinos pretos;
-  // a viga em pé encaixa no furo do meio com um pino cinza
+  // base de cada lado: bloco de cantos retos que sai do próprio topo do robô
+  // (mesma cor da carcaça); a viga em pé nasce de dentro dele
   [-1, 1].forEach(s => {
-    const bx = s * X, by = yT + LEGO.t / 2;
-    add(v, technicBeam(3), M.white, bx, by, zH - LEGO.pitch, { rx: -Math.PI / 2, rz: -Math.PI / 2 });
-    [-1, 1].forEach(j => {
-      cyl(v, LEGO.hole, LEGO.hole, LEGO.t + 0.3, bx, yT + LEGO.t / 2 - 0.15, zH + j * LEGO.pitch, M.black, null, 16);
-      cyl(v, 0.3, 0.3, 0.05, bx, yT + LEGO.t + 0.025, zH + j * LEGO.pitch, M.black, null, 16);
-    });
-    cyl(v, LEGO.hole, LEGO.hole, LEGO.t, bx, by, zH, M.gray, null, 16);
+    const bw2 = LEGO.w + 0.06, bl = LEGO.w + 0.5;
+    box(v, bw2, LEGO.t + 0.05, bl, s * (w / 2 - bw2 / 2), yT + (LEGO.t - 0.05) / 2, zH, orange);
   });
   const firstY = yT + LEGO.t + LEGO.w / 2 - 0.05;                           // primeiro furo, apoiado na viga deitada
   const nV = Math.max(2, Math.floor((VINCI.total - LEGO.w / 2 - sag - firstY) / LEGO.pitch + 1e-6) + 1);
