@@ -131,6 +131,8 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
 .vread dt { color: var(--muted); }
 .vread dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
 .vread dd.warn { color: #d6332c; }
+.vrow { margin-top: 10px; }
+.vopt { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13.5px; cursor: pointer; }
 #panelToggle { display: none; }
 
 @media (max-width: 760px) {
@@ -227,6 +229,11 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
           <dt>Espessura da alça</dt><dd id="vThick"></dd>
           <dt>Peso estimado</dt><dd id="vMass"></dd>
         </dl>
+        <div class="row vrow">
+          <button class="btn primary" id="vShow">Ver medidas do VinciBot</button>
+          <button class="btn" id="vBack" hidden>Voltar para a maquete</button>
+        </div>
+        <label class="vopt"><input type="checkbox" id="vDimsOpt"> Mostrar as cotas do VinciBot na maquete</label>
       </div>
 
       <div id="cats"></div>
@@ -664,6 +671,7 @@ function buildVinci() {
   VINCI.grip = { w: 2 * X - LEGO.w, h: topY - LEGO.w / 2 - yT, hMid: topY + sag - LEGO.w / 2 - yT };
   VINCI.beams = { nH: arc.n, nV };
   VINCI.dims = { d: d + 0.13 * k };
+  VINCI.geo = { yT, X, topY, sag, zH, firstY, baseTop: yT + LEGO.t, nV, holes: arc.n };
   VINCI.massG = vinciMass(w, h, d, 2 * nV + arc.n);
 }
 
@@ -962,8 +970,96 @@ function placeVinci() {
   const fit = GRIPPER_GAP - LEGO.t;
   set('vThick', `${mm(LEGO.t)} mm (folga de ${mm(fit)} mm na garra de ${mm(GRIPPER_GAP)} mm)`, fit < 0.05);
   set('vMass', `cerca de ${Math.round(VINCI.massG)} g`);
+  drawVinciDims(b);
   if (selected === byId.vincibot) select(byId.vincibot);
   try { localStorage.setItem('vinci-size-v2', JSON.stringify({ width: VINCI.width, total: VINCI.total })); } catch (e) { /* ignora */ }
+}
+
+// modo de aprovação: só o VinciBot na tela, com todas as cotas, de frente e um pouco de lado
+document.getElementById('vShow').onclick = () => {
+  elements.forEach(e => setVisible(e, e.id === 'vincibot'));
+  select(null); syncPanel();
+  vinciDims.visible = true; document.getElementById('vDimsOpt').checked = true;
+  dims.visible = false; document.getElementById('optDims').checked = false;
+  const b = bboxOf(byId.vincibot), c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3());
+  const dist = Math.max(s.x, s.y, s.z) * 3.4 + 2;
+  flyTo(c.clone().add(new THREE.Vector3(0.42, 0.3, 1).normalize().multiplyScalar(dist)), c, false);
+  document.getElementById('vShow').hidden = true; document.getElementById('vBack').hidden = false;
+};
+document.getElementById('vBack').onclick = () => {
+  elements.forEach(e => setVisible(e, true)); syncPanel();
+  vinciDims.visible = document.getElementById('vDimsOpt').checked = false;
+  dims.visible = document.getElementById('optDims').checked = true;
+  flyTo(...VIEWS.iso);
+  document.getElementById('vShow').hidden = false; document.getElementById('vBack').hidden = true;
+};
+document.getElementById('vDimsOpt').onchange = ev => { vinciDims.visible = ev.target.checked; };
+
+// cotas desenhadas sobre o próprio VinciBot, refeitas a cada mudança de tamanho
+const vinciDims = new THREE.Group();
+vinciDims.visible = false;
+scene.add(vinciDims);
+const DIM_COLOR = 0x1f5fbf;
+function dimLabel(text) {
+  const font = '700 40px Nunito, "Segoe UI", sans-serif';
+  const probe = document.createElement('canvas').getContext('2d'); probe.font = font;
+  const w = Math.ceil(probe.measureText(text).width) + 36, h = 64;
+  const tex = canvasTex(w, h, (g) => {
+    g.fillStyle = 'rgba(255,255,255,.95)'; g.strokeStyle = '#1f5fbf'; g.lineWidth = 4;
+    g.beginPath(); g.roundRect(2, 2, w - 4, h - 4, 14); g.fill(); g.stroke();
+    g.fillStyle = '#12305e'; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(text, w / 2, h / 2 + 2);
+  });
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }));
+  const H = 0.27; s.scale.set(H * w / h, H, 1); s.renderOrder = 21;
+  return s;
+}
+function dimLine3(a, b, text, labelAt) {
+  const m = new THREE.LineBasicMaterial({ color: DIM_COLOR, depthTest: false });
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]), m);
+  line.renderOrder = 20; vinciDims.add(line);
+  const dir = b.clone().sub(a);
+  if (dir.length() > 0.15) {
+    dir.normalize();
+    [[a, dir.clone().negate()], [b, dir]].forEach(([p, d]) => {
+      const c = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.11, 10), new THREE.MeshBasicMaterial({ color: DIM_COLOR, depthTest: false }));
+      c.position.copy(p).addScaledVector(d, -0.055);
+      c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d); c.renderOrder = 20;
+      vinciDims.add(c);
+    });
+  }
+  if (labelAt) {
+    const l = dimLabel(text); l.position.copy(labelAt); vinciDims.add(l);
+    if (labelAt.distanceTo(a.clone().add(b).multiplyScalar(0.5)) > 0.3) {      // linha de chamada até o rótulo
+      const lead = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a.clone().add(b).multiplyScalar(0.5), labelAt]),
+        new THREE.LineBasicMaterial({ color: DIM_COLOR, depthTest: false, transparent: true, opacity: .5 }));
+      lead.renderOrder = 20; vinciDims.add(lead);
+    }
+  }
+}
+function drawVinciDims(b) {
+  vinciDims.children.slice().forEach(c => { vinciDims.remove(c); c.geometry?.dispose(); c.material?.map?.dispose(); c.material?.dispose(); });
+  const G = VINCI.geo, o = vinciRoot.position, V = (x, y, z) => new THREE.Vector3(o.x + x, y, o.z + z);
+  const s = b.getSize(new THREE.Vector3());
+  const lx = b.min.x - o.x, rx = b.max.x - o.x, fz = b.max.z - o.z + 0.3, bz = b.min.z - o.z;
+  const zf = G.zH + LEGO.t / 2 + 0.03;                                            // frente das vigas da alça
+  const hw = LEGO.w / 2;
+  // medidas gerais
+  dimLine3(V(lx, 0.02, fz), V(rx, 0.02, fz), `largura ${mm(s.x)} mm`, V(0, -0.28, fz));
+  dimLine3(V(rx + 0.35, 0, fz), V(rx + 0.35, b.max.y, fz), `altura total ${mm(b.max.y)} mm`, V(rx + 1.45, b.max.y * 0.45, fz));
+  dimLine3(V(lx - 0.35, 0, fz), V(lx - 0.35, G.yT, fz), `corpo ${mm(G.yT)} mm`, V(lx - 1.0, G.yT * 0.5, fz));
+  dimLine3(V(rx + 0.35, 0.02, bz), V(rx + 0.35, 0.02, fz - 0.3), `profundidade ${mm(s.z)} mm`, V(rx + 1.2, 0.02, (bz + fz) / 2 - 0.4));
+  // vão da alça para a garra
+  const yMid = (G.baseTop + G.topY) / 2;
+  dimLine3(V(-G.X + hw, yMid, zf), V(G.X - hw, yMid, zf), `vão ${mm(VINCI.grip.w)} mm`, V(0, yMid + 0.2, zf));
+  dimLine3(V(0.2, G.yT, zf), V(0.2, G.topY + G.sag - hw, zf), `altura do vão ${mm(VINCI.grip.h)} a ${mm(VINCI.grip.hMid)} mm`, V(0.2, G.yT + (G.topY - G.yT) * 0.3, zf + 0.15));
+  // espessura e largura das vigas, furos
+  const yTopArc = G.topY + G.sag + hw;
+  dimLine3(V(0, yTopArc + 0.12, G.zH - LEGO.t / 2), V(0, yTopArc + 0.12, G.zH + LEGO.t / 2), `espessura ${mm(LEGO.t)} mm (garra de ${mm(GRIPPER_GAP)} mm)`, V(0, yTopArc + 0.42, G.zH));
+  const yb = G.topY - LEGO.pitch / 2;
+  dimLine3(V(G.X - hw, yb, zf), V(G.X + hw, yb, zf), `viga ${mm(LEGO.w)} mm`, V(G.X + 0.95, yb, zf));
+  dimLine3(V(-G.X - hw - 0.12, G.topY - LEGO.pitch, zf), V(-G.X - hw - 0.12, G.topY, zf), `${mm(LEGO.pitch)} mm entre furos`, V(-G.X - 1.25, G.topY - LEGO.pitch / 2, zf));
+  dimLine3(V(-G.X - LEGO.hole, G.topY, zf), V(-G.X + LEGO.hole, G.topY, zf), `furo Ø ${mm(LEGO.hole * 2)} mm`, V(-G.X - 1.0, G.topY + 0.42, zf));
 }
 [['vW', 'vWr', 'width'], ['vH', 'vHr', 'total']].forEach(([num, rng, key]) => {
   const n = document.getElementById(num), r = document.getElementById(rng);
