@@ -149,6 +149,7 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
@@ -204,7 +205,8 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
         <div class="row">
           <button class="btn" id="showAll">Mostrar tudo</button>
           <button class="btn" id="hideAll">Esconder tudo</button>
-          <button class="btn primary" id="stlAll">Baixar STL do que está visível</button>
+          <button class="btn primary" id="zipAll">Baixar todas as peças separadas (.zip)</button>
+          <button class="btn" id="stlAll">Baixar STL do que está visível</button>
         </div>
       </div>
 
@@ -250,7 +252,7 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
 
       <div>
         <div class="section-title">Para imprimir</div>
-        <p class="note">O arquivo STL sai em <b>milímetros</b>, com o eixo Z para cima. A base tem <b>210 × 80 mm</b> e cabe numa mesa de impressão de 220 × 220 mm. Placa, telas e adesivos de reciclagem aparecem coloridos aqui, mas no STL viram peças lisas: o desenho pode ser colado depois, impresso em papel.</p>
+        <p class="note">Cada peça da lista tem o botão <b>STL</b>, que baixa só aquela peça. O botão <b>Baixar todas as peças separadas</b> traz um .zip com um STL por peça e uma lista com medidas e filamento. Os arquivos saem em <b>milímetros</b>, com o eixo Z para cima, e cada peça já vem centrada na mesa. A base tem <b>210 × 80 mm</b> e cabe numa mesa de 220 × 220 mm. Telas e adesivos de reciclagem aparecem coloridos aqui, mas no STL viram peças lisas: o desenho pode ser impresso em papel e colado depois.</p>
       </div>
       <div>
         <div class="section-title">Observação</div>
@@ -399,13 +401,17 @@ const CATS = [
   { id: 'decoracao', name: 'Decoração' },
 ];
 const elements = [];
+// itens presos na parede do fundo: aparecem separados na lista, mas saem no mesmo STL da parede
+const WALL_ITEMS = ['placa', 'janela', 'wifi', 'engrenagem', 'planta-parede', 'lousa'];
 function element(id, name, cat, info, build) {
   const g = new THREE.Group();
   g.name = id;
   build(g);
   g.traverse(o => { if (o.isMesh) { o.castShadow = !o.userData.noPrint || o.geometry.type !== 'PlaneGeometry'; o.receiveShadow = true; o.userData.elId = id; } });
   scene.add(g);
-  const el = { id, name, cat, group: g, swatch: info.swatch || '#c99d6c', fil: info.fil, note: info.note };
+  const printWith = WALL_ITEMS.includes(id) ? 'parede-fundo' : null;
+  const note = printWith ? `${info.note} Sai impressa junto com a parede do fundo, numa peça só: não precisa colar.` : info.note;
+  const el = { id, name, cat, group: g, swatch: info.swatch || '#c99d6c', fil: printWith ? 'Mesmo filamento da parede do fundo' : info.fil, note, printWith };
   elements.push(el);
   return el;
 }
@@ -414,9 +420,26 @@ function element(id, name, cat, info, build) {
 element('base', 'Base (piso)', 'estrutura',
   { swatch: '#c99d6c', fil: 'PLA marrom ou bege', note: 'Placa de 210 × 80 × 3 mm. Imprimir deitada, com 100% de preenchimento nas bordas para não empenar.' },
   g => { box(g, W, T, D, 0, -T / 2, 0, M.card); });
-element('parede-fundo', 'Parede do fundo', 'estrutura',
-  { fil: 'PLA marrom ou bege', note: 'Parede de 210 × 70 × 3 mm. Imprimir deitada e colar na base.' },
-  g => { box(g, W, H, T, 0, H / 2, -D / 2 + T / 2, M.cardDark); });
+element('parede-fundo', 'Parede do fundo (com o projetor)', 'estrutura',
+  { fil: 'PLA marrom ou bege', note: 'Parede de 210 × 70 × 3 mm impressa numa peça só com tudo o que fica nela: placa, janela, Wi-Fi, engrenagem, lousa digital, cacto pendurado e projetor. Nada disso precisa ser colado. O projetor fica preso por um suporte maciço de 6 × 4 mm com reforço triangular por baixo. Imprimir deitada, com a face de trás na mesa; os itens ficam para cima e não precisam de suporte de impressão. Depois, colar a parede na base.' },
+  g => {
+    box(g, W, H, T, 0, H / 2, -D / 2 + T / 2, M.cardDark);
+    projectorOnWall(g);
+  });
+
+// projetor preso na parede do fundo por um suporte maciço com reforço triangular
+function projectorOnWall(g) {
+  const x = 4.0, y = 6.15, z = ZW + 1.0;            // corpo de 14 × 7 × 10 mm, a 5 mm da parede
+  add(g, new RoundedBoxGeometry(1.4, 0.7, 1.0, 3, 0.08), M.cardLight, x, y, z);
+  cyl(g, 0.2, 0.2, 0.12, x + 0.3, y, z + 0.53, M.black, { rx: Math.PI / 2 });
+  box(g, 0.25, 0.08, 0.05, x - 0.35, y + 0.1, z + 0.51, M.black);
+  // braço: entra 0,2 mm na parede e 0,5 mm no projetor
+  box(g, 0.6, 0.4, 0.57, x, y + 0.1, ZW + 0.265, M.black);
+  // reforço triangular por baixo do braço, do mesmo material da parede
+  const tri = new THREE.Shape();
+  tri.moveTo(-0.02, y - 0.1); tri.lineTo(0.55, y - 0.1); tri.lineTo(-0.02, y - 0.9); tri.closePath();
+  add(g, new THREE.ExtrudeGeometry(tri, { depth: 0.4, bevelEnabled: false }), M.black, x + 0.2, 0, ZW, { ry: -Math.PI / 2 });
+}
 element('parede-esq', 'Parede esquerda', 'estrutura',
   { fil: 'PLA marrom ou bege', note: 'Parede lateral de 77 × 70 × 3 mm, em ângulo reto com o fundo.' },
   g => { box(g, T, H, D - T, -W / 2 + T / 2, H / 2, T / 2, M.cardDark); });
@@ -425,20 +448,13 @@ element('parede-dir', 'Parede direita', 'estrutura',
   g => { box(g, T, H, D - T, W / 2 - T / 2, H / 2, T / 2, M.cardDark); });
 
 // ------------------------------------------------------------ NA PAREDE
-const signTex = canvasTex(1024, 512, (g, w, h) => {
-  g.fillStyle = '#e9cfa6'; g.fillRect(0, 0, w, h);
-  for (let i = 0; i < 1500; i++) { g.fillStyle = `rgba(120,80,40,${rand() * .08})`; g.fillRect(rand() * w, rand() * h, 2, 2); }
-  g.fillStyle = '#d9a35e';
-  [[0, 0], [w, 0], [0, h], [w, h]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 46, 0, Math.PI * 2); g.fill(); });
-  g.fillStyle = '#2c2116'; g.font = '600 74px Fredoka, "Trebuchet MS", sans-serif'; g.textBaseline = 'middle';
-  ['Ambiente Escolar', 'Tecnológico', 'com Materiais', 'Recicláveis'].forEach((t, i) => g.fillText(t, 54 + (i % 2) * 30, 92 + i * 108));
-  drawRecycle(g, 830, 210, 150, '#1f8a4c');
-});
-element('placa', 'Placa “Ambiente Escolar Tecnológico”', 'parede',
-  { swatch: '#e9cfa6', fil: 'PLA bege + adesivo impresso', note: 'Plaquinha de 56 × 28 × 1,5 mm. O texto e o símbolo podem ser impressos em papel e colados.' },
+// a placa era uma textura com escritos; agora é lisa. Os números aleatórios que ela usava
+// continuam sendo consumidos para os livros e as paisagens não mudarem de aparência
+for (let i = 0; i < 4500; i++) rand();
+element('placa', 'Placa da parede (lisa)', 'parede',
+  { swatch: '#e9cfa6', fil: 'PLA bege', note: 'Plaquinha lisa de 56 × 28 × 1,5 mm, sem escritos.' },
   g => {
-    box(g, 5.6, 2.8, 0.15, -6.4, 4.9, ZW + 0.075, M.cardLight);
-    decal(g, 5.6, 2.8, signTex, -6.4, 4.9, ZW + 0.16);
+    box(g, 5.6, 2.8, 0.15, -6.4, 5.25, ZW + 0.075, M.cardLight);   // acima da impressora 3D, sem encostar
   });
 
 const landscapeTex = canvasTex(512, 512, (g, w, h) => {
@@ -451,7 +467,7 @@ const landscapeTex = canvasTex(512, 512, (g, w, h) => {
   }
 });
 element('janela', 'Janela', 'parede',
-  { swatch: '#a87645', fil: 'PLA marrom (moldura)', note: 'Moldura de 30 × 26 mm com grade 3 × 2. A paisagem é um adesivo colado atrás.' },
+  { swatch: '#a87645', fil: 'PLA marrom (moldura)', note: 'Moldura de 30 × 26 mm com grade 3 × 2. A paisagem pode ser pintada na parede ou colada como adesivo.' },
   g => {
     const x = -1.8, y = 4.7, w = 3.0, h = 2.6, t = 0.18, d = 0.22, z = ZW + d / 2;
     decal(g, w - 0.1, h - 0.1, landscapeTex, x, y, ZW + 0.02);
@@ -466,7 +482,7 @@ element('janela', 'Janela', 'parede',
   });
 
 element('wifi', 'Símbolo de Wi-Fi', 'parede',
-  { swatch: '#1f56c3', fil: 'PLA azul', note: 'Três arcos e um ponto, com 2 mm de espessura. Colar na parede.' },
+  { swatch: '#1f56c3', fil: 'PLA azul', note: 'Três arcos e um ponto, com 2 mm de espessura.' },
   g => {
     const cx = 1.7, cy = 5.7, z = ZW + 0.1;
     [0.35, 0.65, 0.95].forEach(r => add(g, new THREE.TorusGeometry(r, 0.09, 8, 28, Math.PI / 2), M.blue, cx, cy, z, { rz: Math.PI / 4 }));
@@ -525,17 +541,6 @@ element('lousa', 'Lousa digital (TV)', 'tecnologia',
     decal(g, 4.15, 2.35, tvTex, 4.4, 4.3, ZW + 0.16, { glow: true });
   });
 
-element('projetor', 'Projetor com suporte', 'tecnologia',
-  { swatch: '#e9cfa6', fil: 'PLA bege + PLA preto (suporte)', note: 'Projetor de 14 × 7 × 10 mm preso por um braço que passa por cima da parede.' },
-  g => {
-    const x = 4.0, y = 6.15, z = ZW + 1.2;
-    add(g, new RoundedBoxGeometry(1.4, 0.7, 1.0, 3, 0.08), M.cardLight, x, y, z);
-    cyl(g, 0.2, 0.2, 0.12, x + 0.3, y, z + 0.53, M.black, { rx: Math.PI / 2 });
-    box(g, 0.25, 0.08, 0.05, x - 0.35, y + 0.1, z + 0.51, M.black);
-    box(g, 0.14, 1.2, 0.14, x, y + 0.95, z, M.black);
-    box(g, 0.14, 0.14, 1.75, x, y + 1.55, z - 0.82, M.black);
-    box(g, 0.14, 0.6, 0.14, x, y + 1.25, ZW - 0.37, M.black);
-  });
 
 element('impressora', 'Impressora 3D (estrutura vazada)', 'tecnologia',
   { swatch: '#3f7dff', fil: 'Um filamento só (PLA cinza ou preto)', note: 'Estrutura aberta de 18 × 18 × 15 mm, sem tampa: colunas, torres do eixo Z, barra do eixo X com o cabeçote, mesa e uma pecinha sendo impressa. Hastes com 1,5 mm de espessura; imprimir em pé sobre a base, sem suporte.' },
@@ -880,7 +885,8 @@ element('robo', 'Robô reciclado', 'decoracao',
 element('pufes', 'Pufes (amarelo e verde)', 'moveis',
   { swatch: '#f2c21b', fil: 'PLA amarelo e PLA verde', note: 'Dois pufes de 17 mm de diâmetro. Imprimir com a base achatada para não precisar de suporte.' },
   g => {
-    [[-1.9, M.yellow], [-0.25, M.green]].forEach(([x, m]) => {
+    // no chão, entre a estante de livros e o armário, sem encostar em nada
+    [[3.1, M.yellow], [5.1, M.green]].forEach(([x, m]) => {
       const p = add(g, new THREE.SphereGeometry(0.85, 32, 20), m, x, 0.6, -2.55);
       p.scale.set(1, 0.72, 1);
       add(g, new THREE.TorusGeometry(0.42, 0.06, 8, 24), m, x, 1.06, -2.55, { rx: Math.PI / 2 });
@@ -1102,7 +1108,9 @@ function renderPanel() {
     const ul = document.createElement('ul'); ul.className = 'items';
     items.forEach(e => {
       const li = document.createElement('li'); li.dataset.id = e.id;
-      li.innerHTML = `<label><input type="checkbox" id="el-${e.id}" checked><span class="swatch" style="background:${e.swatch}"></span><span>${e.name}</span></label><button class="mini" data-pick="${e.id}" aria-label="Selecionar ${e.name}">ver</button>`;
+      li.innerHTML = `<label><input type="checkbox" id="el-${e.id}" checked><span class="swatch" style="background:${e.swatch}"></span><span>${e.name}</span></label><button class="mini" data-pick="${e.id}" aria-label="Selecionar ${e.name}">ver</button>${e.printWith
+        ? `<button class="mini" data-stl="${e.id}" aria-label="Baixar a parede do fundo, que inclui ${e.name}" title="Sai junto com a parede do fundo: baixa a parede inteira">parede</button>`
+        : `<button class="mini" data-stl="${e.id}" aria-label="Baixar STL de ${e.name}" title="Baixar o STL desta peça, centrado na mesa">STL</button>`}`;
       ul.appendChild(li);
     });
     block.appendChild(ul);
@@ -1119,6 +1127,8 @@ function renderPanel() {
   catsEl.addEventListener('click', ev => {
     const id = ev.target.dataset && ev.target.dataset.pick;
     if (id) { select(byId[id]); focusOn(byId[id]); }
+    const stl = ev.target.dataset && ev.target.dataset.stl;
+    if (stl) { const h = hostOf(byId[stl]); downloadStl([h], h.id); }
   });
 }
 function setVisible(e, v) { e.group.visible = v; if (!v && selected === e) select(null); }
@@ -1176,10 +1186,11 @@ document.getElementById('selIsolate').onclick = () => {
   select(selected); focusOn(selected); syncPanel();
 };
 document.getElementById('selFocus').onclick = () => selected && focusOn(selected);
-document.getElementById('selStl').onclick = () => selected && downloadStl([selected], selected.id);
+document.getElementById('selStl').onclick = () => { if (selected) { const h = hostOf(selected); downloadStl([h], h.id); } };
+document.getElementById('zipAll').onclick = ev => downloadAllZip(ev.currentTarget);
 document.getElementById('stlAll').onclick = () => {
   const vis = elements.filter(e => e.group.visible);
-  if (vis.length) downloadStl(vis, vis.length === elements.length ? 'maquete-completa' : 'maquete-pecas-visiveis');
+  if (vis.length) downloadStl(vis, vis.length === elements.length ? 'maquete-completa' : 'maquete-pecas-visiveis', vis.length === 1, true);
 };
 
 const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
@@ -1198,10 +1209,18 @@ canvas.addEventListener('pointerup', ev => {
 
 // ------------------------------------------------------------ exportar STL (mm, Z para cima)
 const exporter = new STLExporter();
-function downloadStl(list, name) {
+// gera o STL (mm, Z para cima). Com `centered`, a peça vai para o centro da mesa e encosta em Z = 0
+// a peça que vai para a impressora: um item preso na parede sai junto com a parede
+const hostOf = e => (e.printWith ? byId[e.printWith] : e);
+function withAttached(list, onlyVisible = false) {
+  const out = new Set();
+  list.forEach(e => { out.add(e); elements.forEach(x => { if (x.printWith === e.id && (!onlyVisible || x.group.visible)) out.add(x); }); });
+  return [...out];
+}
+function stlData(list, centered, onlyVisible = false) {
   scene.updateMatrixWorld(true);
   const root = new THREE.Group();
-  list.forEach(e => e.group.traverse(o => {
+  withAttached(list, onlyVisible).forEach(e => e.group.traverse(o => {
     if (!o.isMesh || o.userData.noPrint) return;
     const m = new THREE.Mesh(o.geometry, o.material);
     m.matrixAutoUpdate = false; m.matrix.copy(o.matrixWorld);
@@ -1212,11 +1231,42 @@ function downloadStl(list, name) {
   wrap.rotation.x = Math.PI / 2;       // Y para cima -> Z para cima
   wrap.add(root);
   wrap.updateMatrixWorld(true);
-  const data = exporter.parse(wrap, { binary: true });
-  const url = URL.createObjectURL(new Blob([data], { type: 'model/stl' }));
-  const a = document.createElement('a'); a.href = url; a.download = name + '.stl';
+  if (centered) {
+    const b = new THREE.Box3().setFromObject(wrap), c = b.getCenter(new THREE.Vector3());
+    wrap.position.set(-c.x, -c.y, -b.min.z);
+    wrap.updateMatrixWorld(true);
+  }
+  return exporter.parse(wrap, { binary: true });
+}
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+function downloadStl(list, name, centered = list.length === 1, onlyVisible = false) {
+  saveBlob(new Blob([stlData(list, centered, onlyVisible)], { type: 'model/stl' }), name + '.stl');
+}
+// todas as peças, cada uma no seu STL e centrada na mesa, num único .zip com uma lista explicativa
+async function downloadAllZip(btn) {
+  if (typeof JSZip === 'undefined') { btn.textContent = 'Não foi possível carregar o compactador. Recarregue a página.'; return; }
+  const label = btn.textContent; btn.disabled = true; btn.textContent = 'Gerando os arquivos…';
+  const zip = new JSZip(), lines = ['Peças da maquete "Ambiente Escolar Tecnológico com Materiais Recicláveis"', 'Equipe Astrobóticos · TBR 2026', 'Medidas em milímetros (L × A × P). Cada STL já vem centrado na mesa de impressão.', ''];
+  const printable = elements.filter(e => {
+    if (e.printWith) return false;                       // já vai dentro do STL da parede
+    let ok = false; e.group.traverse(o => { if (o.isMesh && !o.userData.noPrint) ok = true; }); return ok;
+  });
+  printable.forEach((e, i) => {
+    const n = String(i + 1).padStart(2, '0');
+    zip.file(`${n}-${e.id}.stl`, stlData([e], true).buffer);
+    const b = new THREE.Box3(); withAttached([e]).forEach(x => b.union(bboxOf(x)));
+    const s = b.getSize(new THREE.Vector3());
+    lines.push(`${n}-${e.id}.stl — ${e.name}`, `   ${mm(s.x)} × ${mm(s.y)} × ${mm(s.z)} mm · ${e.fil}`, `   ${e.note}`, '');
+  });
+  zip.file('LEIA-ME.txt', lines.join('\r\n'));
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+  saveBlob(blob, 'maquete-astroboticos-pecas.zip');
+  btn.disabled = false; btn.textContent = label;
 }
 
 // ------------------------------------------------------------ câmera e vistas
