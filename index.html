@@ -638,7 +638,7 @@ function buildVinci() {
   // onde quer que a garra pegue, o robô escorrega até ficar pendurado pelo centro.
   const X = w / 2 - LEGO.w / 2;                                             // vigas rentes às laterais
   const sag = Math.min(0.5, X * 0.3);                                       // quanto o meio do arco sobe
-  const zH = -0.15 * k;
+  const zH = 0;                                                             // alça no centro do corpo, para equilibrar
   // base de cada lado: viga deitada de 3 furos presa ao topo por dois pinos pretos;
   // a viga em pé sai do meio dela, com a ponta de baixo reta, como se fossem uma peça só
   [-1, 1].forEach(s => {
