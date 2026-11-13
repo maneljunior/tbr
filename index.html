@@ -224,6 +224,7 @@ input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent);
           <dt>Folga até a cadeira</dt><dd id="vChair"></dd>
           <dt>Vão da alça</dt><dd id="vGrip"></dd>
           <dt>Vigas Technic</dt><dd id="vBeams"></dd>
+          <dt>Espessura da alça</dt><dd id="vThick"></dd>
           <dt>Peso estimado</dt><dd id="vMass"></dd>
         </dl>
       </div>
@@ -561,9 +562,9 @@ element('impressora', 'Impressora 3D (estrutura vazada)', 'tecnologia',
   });
 
 // VinciBot: reconstruído sempre que a equipe muda a largura ou a altura no painel
-const VINCI = { width: 3.8, total: 7.0 };
+const VINCI = { width: 3.0, total: 5.5 };
 try {
-  const saved = JSON.parse(localStorage.getItem('vinci-size') || 'null');
+  const saved = JSON.parse(localStorage.getItem('vinci-size-v2') || 'null');
   if (saved && saved.width && saved.total) Object.assign(VINCI, saved);
 } catch (e) { /* sem armazenamento: usa o padrão */ }
 const orange = mat('orange', 0xf47b20, { roughness: .45 });
@@ -573,7 +574,7 @@ let vinciRoot = null;
 
 element('vincibot', 'VinciBot (com alça)', 'tecnologia',
   { swatch: '#f47b20', fil: 'Um filamento só, impresso oco',
-    note: 'Largura e altura se ajustam no painel, em “Tamanho do VinciBot”. A alça é um quadro de vigas Technic em medidas reais de LEGO (furos de 4,8 mm a cada 8 mm), para o VinciBot de verdade encaixar a garra ou pinos LEGO e levar o robô até o cenário. A altura da alça sobe de 8 em 8 mm. Para ficar leve: 2 paredes (0,8 mm), 4 camadas no topo, 3 na base e 5% de preenchimento giroide. Imprimir em pé, sem suporte. Não colar na base.' },
+    note: 'Largura e altura se ajustam no painel, em “Tamanho do VinciBot”. A alça é um quadro de vigas furadas no estilo Technic, com 4,5 × 4,5 mm de seção e furos de 2,9 mm a cada 8 mm. A espessura de 4,5 mm entra com folga no vão de 6 mm da garra do VinciBot de verdade, que encaixa nela e levar o robô até o cenário. Para ficar leve: 2 paredes (0,8 mm), 4 camadas no topo, 3 na base e 5% de preenchimento giroide. Imprimir em pé, sem suporte. Não colar na base.' },
   g => { vinciRoot = new THREE.Group(); vinciRoot.name = 'vincibot-corpo'; g.add(vinciRoot); });
 
 function buildVinci() {
@@ -632,7 +633,7 @@ function buildVinci() {
     }
     cyl(v, 0.11 * k, 0.11 * k, 0.12 * k, s * (w / 2 + 0.05 * k), y0 + h * 0.66, 0.16 * k, orange, { rz: Math.PI / 2 }, 16);
   });
-  // alça: vigas Technic em medidas reais de LEGO (não escalam com o robô).
+  // alça: vigas no estilo Technic com medidas fixas (não escalam com o robô).
   // Duas vigas em pé, rentes às laterais, e no alto uma viga em arco suave:
   // onde quer que a garra pegue, o robô escorrega até ficar pendurado pelo centro.
   const X = w / 2 - LEGO.w / 2;                                             // vigas rentes às laterais
@@ -645,13 +646,18 @@ function buildVinci() {
     add(v, technicBeam(3), M.white, bx, yT + LEGO.t / 2, zH - LEGO.pitch, { rx: -Math.PI / 2, rz: -Math.PI / 2 });
     [-1, 1].forEach(j => {
       cyl(v, LEGO.hole, LEGO.hole, LEGO.t + 0.3, bx, yT + LEGO.t / 2 - 0.15, zH + j * LEGO.pitch, M.black, null, 16);
-      cyl(v, 0.3, 0.3, 0.05, bx, yT + LEGO.t + 0.025, zH + j * LEGO.pitch, M.black, null, 16);
+      cyl(v, LEGO.hole + 0.04, LEGO.hole + 0.04, 0.05, bx, yT + LEGO.t + 0.025, zH + j * LEGO.pitch, M.black, null, 16);
     });
   });
-  const firstY = yT + LEGO.t + LEGO.w / 2 - 0.05;                           // primeiro furo, apoiado na viga deitada
-  const nV = Math.max(2, Math.floor((VINCI.total - LEGO.w / 2 - sag - firstY) / LEGO.pitch + 1e-6) + 1);
-  const topY = firstY + (nV - 1) * LEGO.pitch;
-  [-1, 1].forEach(s => add(v, technicBeam(nV, true), M.white, s * X, firstY, zH, { rz: Math.PI / 2 }));
+  // os furos são contados a partir do alto (onde o arco encaixa) para a altura bater com o campo;
+  // a ponta reta de baixo estica até a viga deitada e absorve a sobra
+  const baseTop = yT + LEGO.t, lowest = baseTop + LEGO.w / 2 + 0.05;
+  let topY = VINCI.total - LEGO.w / 2 - sag;
+  const nV = Math.max(2, Math.floor((topY - lowest) / LEGO.pitch + 1e-6) + 1);
+  topY = Math.max(topY, lowest + (nV - 1) * LEGO.pitch);
+  const firstY = topY - (nV - 1) * LEGO.pitch;
+  const extra = firstY - LEGO.w / 2 - (baseTop - 0.05);
+  [-1, 1].forEach(s => add(v, technicBeam(nV, true, extra), M.white, s * X, firstY, zH, { rz: Math.PI / 2 }));
   const arc = technicArc(X, sag);
   add(v, arc.geo, M.white, 0, topY, zH);
   v.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.userData.elId = 'vincibot'; } });
@@ -661,15 +667,17 @@ function buildVinci() {
   VINCI.massG = vinciMass(w, h, d, 2 * nV + arc.n);
 }
 
-// viga Technic: n furos a 8 mm, pontas arredondadas, furos de 4,8 mm, 7,2 mm de espessura;
-// começa no primeiro furo (origem) e segue no eixo +x
-const LEGO = { pitch: 0.8, w: 0.74, t: 0.72, hole: 0.24 };
-function technicBeam(n, squareStart = false) {
-  const L = (n - 1) * LEGO.pitch, r = LEGO.w / 2;
+// viga no estilo Technic: furos a cada 8 mm, pontas arredondadas, 4,5 mm de largura,
+// 4,5 mm de espessura e furos de 2,9 mm (paredes de 0,8 mm). A espessura cabe com folga
+// no vão de 6 mm da garra do VinciBot de verdade. Começa no primeiro furo e segue no eixo +x
+const LEGO = { pitch: 0.8, w: 0.45, t: 0.45, hole: 0.145 };
+const GRIPPER_GAP = 0.6;   // vão da garra do VinciBot real, em cm
+function technicBeam(n, squareStart = false, extra = 0) {
+  const L = (n - 1) * LEGO.pitch, r = LEGO.w / 2, x0 = -r - extra;
   const s = new THREE.Shape();
-  s.moveTo(squareStart ? -r : 0, -r); s.lineTo(L, -r);
+  s.moveTo(squareStart ? x0 : 0, -r); s.lineTo(L, -r);
   s.absarc(L, 0, r, -Math.PI / 2, Math.PI / 2, false);
-  if (squareStart) { s.lineTo(-r, r); s.closePath(); }           // ponta inicial reta
+  if (squareStart) { s.lineTo(x0, r); s.closePath(); }           // ponta inicial reta, esticada por `extra`
   else { s.lineTo(0, r); s.absarc(0, 0, r, Math.PI / 2, Math.PI * 1.5, false); }
   for (let i = 0; i < n; i++) {
     const hp = new THREE.Path(); hp.absarc(i * LEGO.pitch, 0, LEGO.hole, 0, Math.PI * 2, true); s.holes.push(hp);
@@ -951,9 +959,11 @@ function placeVinci() {
   set('vChair', chair < 0 ? 'encosta na cadeira' : `${mm(chair)} mm`, chair < MIN_GAP);
   set('vGrip', `${mm(VINCI.grip.w)} mm de largura · ${mm(VINCI.grip.h)} a ${mm(VINCI.grip.hMid)} mm de altura`);
   set('vBeams', `2 retas de ${VINCI.beams.nV} furos + 1 em arco de ${VINCI.beams.nH} furos`);
+  const fit = GRIPPER_GAP - LEGO.t;
+  set('vThick', `${mm(LEGO.t)} mm (folga de ${mm(fit)} mm na garra de ${mm(GRIPPER_GAP)} mm)`, fit < 0.05);
   set('vMass', `cerca de ${Math.round(VINCI.massG)} g`);
   if (selected === byId.vincibot) select(byId.vincibot);
-  try { localStorage.setItem('vinci-size', JSON.stringify({ width: VINCI.width, total: VINCI.total })); } catch (e) { /* ignora */ }
+  try { localStorage.setItem('vinci-size-v2', JSON.stringify({ width: VINCI.width, total: VINCI.total })); } catch (e) { /* ignora */ }
 }
 [['vW', 'vWr', 'width'], ['vH', 'vHr', 'total']].forEach(([num, rng, key]) => {
   const n = document.getElementById(num), r = document.getElementById(rng);
